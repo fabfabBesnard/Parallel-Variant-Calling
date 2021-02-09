@@ -126,18 +126,11 @@ done
 
 */
 
-if (params.read){
+if (params.read) {
         Channel
             .fromFilePairs(params.read, size:-1)
-            .ifEmpty { error "Cannot find any file matching: ${params.inputFromPATH}" }
+            .ifEmpty { error "Cannot find any file matching: ${params.read}" }
             .set{ fastqgz }
-}
-else { exit 1,
-  log.warn "=================================================================\n" +
-           "  WARNING! No genome fasta file precised.\n" +
-           "  Use '--fasta' \n" +
-           "  Or '--help' for more informations"
-           "======================================================================="
 }
 
 if (params.index) {
