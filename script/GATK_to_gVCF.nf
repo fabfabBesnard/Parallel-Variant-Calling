@@ -139,13 +139,6 @@ if (params.index) {
             .ifEmpty { error "Cannot find index: ${params.fasta}" }
             .set { index }
 }
-else { exit 1,
-  log.warn "=================================================================\n" +
-           "  WARNING! No genome fasta file precised.\n" +
-           "  Use '--fasta' \n" +
-           "  Or '--help' for more informations"
-           "======================================================================="
-}
 
 index.view()
 fastqgz.view()
