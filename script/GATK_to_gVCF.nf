@@ -35,12 +35,12 @@ def helpMessage() {
     Usage:
 
     The typical command for running the pipeline is as follows:
-      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608*" --index "/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel*" -profile psmn
+      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608*" --fasta "/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel*.fa" -profile psmn
 
 
     Required arguments:
       --reads                Full path to directory and name of reads in fastq.gz
-      --index               Full path to directory of genome
+      --fasta               Full path to directory of genome
 
     Nextflow config:
       -c                            Path to config file: src/chip_analysis.config
@@ -70,7 +70,7 @@ def helpMessage() {
 ////////////////////////////////////////////////////
 
 params.help = false
-params.index= false
+params.fasta= false
 params.reads = false
 params.outdir = 'results'
 
@@ -98,7 +98,7 @@ if (params.help) {
 log.info nfcoreHeader()
 def summary = [:]
 summary['reads']                 = params.reads ?: 'Not supplied'
-summary['index']                 = params.index ?: 'Not supplied'
+summary['fasta']                 = params.fasta ?: 'Not supplied'
 summary['Config Profile']         = workflow.profile
 summary['Output']                 = params.outdir
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
@@ -110,6 +110,56 @@ log.info "-\033[2m--------------------------------------------------\033[0m-"
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
 /* --                          STEP 1 : MAPPING                           -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+if (params.reads) {
+        Channel
+            .fromFilePairs(params.reads, size:2)
+            .ifEmpty { error "Cannot find any file matching: ${params.reads}" }
+            .set{ fastqgz }
+}
+
+if (params.fasta) {
+        Channel
+            .fromPath( params.fasta )
+            .ifEmpty { error "Cannot find any bam files matching: ${params.fasta}" }
+            .map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
+            .set { fasta_file }
+}
+
+
+
+
+
+
+process index_fasta {
+  label "bwa"
+  tag "$fasta_id"
+  publishDir "results/mapping/index/", mode: 'copy'
+
+  input:
+    set fasta_id, file(fasta) from fasta_file
+
+  output:
+    set fasta_id, "${fasta.baseName}.*" into index_files
+    file "*_bwa_report.txt" into index_files_report
+
+  script:
+    """
+    bwa index -p ${fasta.baseName} ${fasta} \
+    &> ${fasta.baseName}_bwa_report.txt
+    """
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                          STEP 2 : MAPPING                           -- */
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,21 +176,6 @@ done
 
 */
 
-if (params.reads) {
-        Channel
-            .fromFilePairs(params.reads, size:2)
-            .ifEmpty { error "Cannot find any file matching: ${params.reads}" }
-            .set{ fastqgz }
-}
-
-if (params.index) {
-        Channel
-              .fromPath( params.index )
-              .ifEmpty { error "Cannot find any index files matching: ${params.index}" }
-              .map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
-              .groupTuple()
-              .set { index_files }
-}
 
 // index.view()
 // fastqgz.view()
@@ -194,7 +229,7 @@ def nfcoreHeader() {
     ${c_blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${c_yellow}}  {${c_reset}
     ${c_blue}  | \\| |       \\__, \\__/ |  \\ |___     ${c_green}\\`-._,-`-,${c_reset}
                                             ${c_green}`._,._,\'${c_reset}
-    ${c_purple}  CHIP-SEQ Pipeline          ${c_reset}
+    ${c_purple}  ROMUALD MARIN PIPELINE          ${c_reset}
     -${c_dim}--------------------------------------------------${c_reset}-
     """.stripIndent()
 }
