@@ -127,7 +127,7 @@ if (params.fasta) {
             .fromPath( params.fasta )
             .ifEmpty { error "Cannot find any bam files matching: ${params.fasta}" }
             .map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
-            .into { fasta_file, test }
+            .into { fasta_file; test }
 }
 
 test.view()
