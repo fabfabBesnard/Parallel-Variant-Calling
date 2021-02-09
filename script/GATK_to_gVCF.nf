@@ -151,7 +151,7 @@ process mapping_fastq {
   publishDir "results/mapping/${pair_id}/sam", mode: 'copy'
 
   input:
-  set pair_id, file(reads) from fastq_files
+  set pair_id, file(reads) from fastqgz
   set index_id, file(index) from index_files.collect()
 
   output:
