@@ -149,6 +149,7 @@ process index_fasta {
 
   script:
     """
+    pwd > pwd.txt
     bwa index -p ${fasta.baseName} ${fasta} \
     &> ${fasta.baseName}_bwa_report.txt
     """
