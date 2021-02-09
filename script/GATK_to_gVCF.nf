@@ -128,7 +128,7 @@ done
 
 if (params.read) {
         Channel
-            .fromFilePairs(params.read, size:-1)
+            .fromFilePairs(params.read, size:2)
             .ifEmpty { error "Cannot find any file matching: ${params.read}" }
             .set{ fastqgz }
 }
