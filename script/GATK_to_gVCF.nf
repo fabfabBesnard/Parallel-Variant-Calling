@@ -35,11 +35,11 @@ def helpMessage() {
     Usage:
 
     The typical command for running the pipeline is as follows:
-      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --read /home/rmarin/V300042688_L2_AE06084935-608* --index /home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel* -profile psmn
+      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608*" --index "/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel*" -profile psmn
 
 
     Required arguments:
-      --read                Full path to directory and name of reads in fastq.gz
+      --reads                Full path to directory and name of reads in fastq.gz
       --index               Full path to directory of genome
 
     Nextflow config:
@@ -71,7 +71,7 @@ def helpMessage() {
 
 params.help = false
 params.index= false
-params.read = false
+params.reads = false
 params.outdir = 'results'
 
 
@@ -97,7 +97,7 @@ if (params.help) {
 // Header log info
 log.info nfcoreHeader()
 def summary = [:]
-summary['read']                 = params.read ?: 'Not supplied'
+summary['reads']                 = params.reads ?: 'Not supplied'
 summary['index']                 = params.index ?: 'Not supplied'
 summary['Config Profile']         = workflow.profile
 summary['Output']                 = params.outdir
@@ -126,22 +126,46 @@ done
 
 */
 
-if (params.read) {
+if (params.reads) {
         Channel
-            .fromFilePairs(params.read, size:2)
-            .ifEmpty { error "Cannot find any file matching: ${params.read}" }
+            .fromFilePairs(params.reads, size:2)
+            .ifEmpty { error "Cannot find any file matching: ${params.reads}" }
             .set{ fastqgz }
 }
 
 if (params.index) {
         Channel
-            .fromPath( params.index )
-            .ifEmpty { error "Cannot find index: ${params.fasta}" }
-            .set { index }
+              .fromPath( params.index )
+              .ifEmpty { error "Cannot find any index files matching: ${params.index}" }
+              .map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
+              .groupTuple()
+              .set { index_files }
 }
 
-index.view()
-fastqgz.view()
+// index.view()
+// fastqgz.view()
+
+process mapping_fastq {
+  label 'bwa'
+  tag "$reads"
+  publishDir "results/mapping/${pair_id}/sam", mode: 'copy'
+
+  input:
+  set pair_id, file(reads) from fastq_files
+  set index_id, file(index) from index_files.collect()
+
+  output:
+  file "${pair_id}.sam" into sam_files
+  file "${pair_id}_bwa_report.txt" into mapping_repport_files
+
+  script:
+"""
+bwa mem -t ${task.cpus} \
+${index_id} ${reads[0]} ${reads[1]} \
+-o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
+"""
+}
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
