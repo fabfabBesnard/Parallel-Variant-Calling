@@ -2,8 +2,8 @@
 
 
 
-## Objectif : 
-Faire tourner le script avec un jeu de données echantionnée sur le PSMN
+## Objectif : Prise en main du script initial
+Faire tourner le script existant avec un jeu de données echantionnée sur le PSMN
 
 - Les données fastq paired end de test 
 `/home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/FG06_13_C4/V300042688_L2_AE06084935-608_1.fq.gz /home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/FG06_13_C4/V300042688_L2_AE06084935-608_2.fq.gz`
@@ -48,3 +48,26 @@ Job was rejected because job requests unknown queue "monointeldeb48"
 Exiting.
 
 ```
+
+Apres modification, le script fonctionne, le repertoire contient les fichiers 
+
+```
+rmarin@cl6242comp1:~$ tree TEST_sampling/
+TEST_sampling/
+├── metrics
+│   ├── dedup.TEST_sampling.SRmerged.txt
+│   └── TEST_sampling.RG.dedup.SRmerged.ufilter.flagstat.txt
+├── TEST_sampling.RG.dedup.SRmerged.bam
+├── TEST_sampling.RG.dedup.SRmerged.ufilter.bai
+└── TEST_sampling.RG.dedup.SRmerged.ufilter.bam
+```
+
+## Objectif : Creation du pipeline en nextflow
+
+installation de nextflow 
+https://www.nextflow.io/docs/latest/getstarted.html
+
+Récuperation d'un pipeline existant avec fichier de config 
+
+Modicication du pipeline afin de faire comme le script  GATK_fq-to-gVCF.v4_PSMN.sh
+
