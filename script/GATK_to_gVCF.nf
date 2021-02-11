@@ -126,7 +126,7 @@ if (params.fasta) {
         Channel
             .fromPath( params.fasta )
             .ifEmpty { error "Cannot find any bam files matching: ${params.fasta}" }
-            .map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
+            .map { it -> [(it.baseName =~ /([^\/]*)/)[0][1], it]}
             .into { fasta_file; test }
 }
 
@@ -149,12 +149,12 @@ process index_fasta {
 
   script:
     """
-    pwd > pwd.txt
     bwa index -p ${fasta.baseName} ${fasta} \
     &> ${fasta.baseName}_bwa_report.txt
     """
 }
 
+ //   bwa index Physcomitrella_patens.Phypa_V3.dna_rm.toplevel.fa &> ${fasta.baseName}_bwa_report.txt
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -183,7 +183,7 @@ done
 
 process mapping_fastq {
   label 'bwa'
-  tag "$reads"
+  tag "$pair_id"
   publishDir "results/mapping/${pair_id}/sam", mode: 'copy'
 
   input:
@@ -191,15 +191,46 @@ process mapping_fastq {
   set index_id, file(index) from index_files.collect()
 
   output:
-  file "${pair_id}.sam" into sam_files
-  file "${pair_id}_bwa_report.txt" into mapping_repport_files
+  set pair_id, "${pair_id}.sam" into sam_files
+  set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
 
   script:
 """
 bwa mem -t ${task.cpus} \
-${index_id} ${reads[0]} ${reads[1]} \
+-aM ${index_id} ${reads[0]} ${reads[1]} \
 -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
 """
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                       STEP 2 : SAM to BAM                           -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+
+process sam_to_bam {
+  label 'samtools'
+  tag "$pair_id"
+  publishDir "results/mapping/${pair_id}/bam", mode: 'copy'
+
+  input:
+  set pair_id, "${pair_id}.sam" from sam_files
+
+  output:
+  set pair_id, "${pair_id}.bam" into bam_files
+  
+
+  script:
+"""
+samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
+"""
+
+
 }
 
 
@@ -225,6 +256,25 @@ def nfcoreHeader() {
     c_white ="\033[0;37m";
 
     return """    -${c_dim}--------------------------------------------------${c_reset}-
+     ${c_blue}   @@@       @@@   @@      @@@@@@@@   @@@@@     @@      @@@     @@@@ @@@@@@@@@@                        
+          @@     @    @ @@      @@    @@    @       &  @      @ @@    #       @@                            
+            @@   @    @   @@     @@@@@,      @     @   @@     @   @@  #       @@                            
+            @@ @    @     @@    @@    @     @     ,    @@     @     @@#       @@                            
+              @@    @@@    @@@@ @@@@    @@@  @@@  @@    @@   @@      @      @@@@                           
+                                                                         
+                                    @@@.        @       @@@      ,@@@@      @@@@@@@@@   @@@@@@@     
+                                 @       @     @/@       @         @,        @@         @     @@    
+                                @@            @  &@      @         @,        @@@@@@(    @ @        
+                                @@           @@@@@@@     @         @,        @@         @@ @       
+                                  @     @   @      @@    @@@@@@    @@@@@@@   @@@@@@@,  @@@   @  @
+    ${c_purple}  ROMUALD MARIN PIPELINE          ${c_reset}
+    -${c_dim}--------------------------------------------------${c_reset}-
+    """.stripIndent()
+}
+
+
+/*
+    return """    -${c_dim}--------------------------------------------------${c_reset}-
                                             ${c_green},--.${c_black}/${c_green},-.${c_reset}
     ${c_blue}        ___     __   __   __   ___     ${c_green}/,-._.--~\'${c_reset}
     ${c_blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${c_yellow}}  {${c_reset}
@@ -233,4 +283,4 @@ def nfcoreHeader() {
     ${c_purple}  ROMUALD MARIN PIPELINE          ${c_reset}
     -${c_dim}--------------------------------------------------${c_reset}-
     """.stripIndent()
-}
+*/
