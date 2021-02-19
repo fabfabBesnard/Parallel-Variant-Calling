@@ -71,3 +71,16 @@ Récuperation d'un pipeline existant avec fichier de config
 
 Modicication du pipeline afin de faire comme le script  GATK_fq-to-gVCF.v4_PSMN.sh
 
+Possibilité de faire un index
+
+ou d'utiliser un  index deja crée
+
+`rmarin@cl6242comp1:~/Pipeline_variant_RDP$ ./nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608_{1,2}.fq.gz" --genomeindex "../ref/index/
+Physcomitrella_patens_Phypa_V3_dna_rm_toplevel.fa.*" -profile psmn -resume`
+
+
+ADD read group 
+https://gatk.broadinstitute.org/hc/en-us/articles/360036713171-AddOrReplaceReadGroups-Picard-
+
+markduplicate 
+https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-

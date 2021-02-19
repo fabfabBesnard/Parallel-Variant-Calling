@@ -35,12 +35,15 @@ def helpMessage() {
     Usage:
 
     The typical command for running the pipeline is as follows:
-      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608*" --fasta "/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel*.fa" -profile psmn
+      nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608*" --genomeindex "/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel" -profile psmn
 
-
+    Don't use dot in file name, use underscore instead
+    ( bad exemple : truc.v2.machin3.fasta , good exemple : truc_v2_machin3.fasta )
+    
     Required arguments:
-      --reads                Full path to directory and name of reads in fastq.gz
-      --fasta               Full path to directory of genome
+      --reads                    Full path to directory and name of reads in fastq.gz
+      --genomefasta              Full path to file of reference genome 
+      --genomeindex              Full path to directory of index
 
     Nextflow config:
       -c                            Path to config file: src/chip_analysis.config
@@ -70,7 +73,8 @@ def helpMessage() {
 ////////////////////////////////////////////////////
 
 params.help = false
-params.fasta= false
+params.genomeindex= false
+params.genomefasta = false
 params.reads = false
 params.outdir = 'results'
 
@@ -98,9 +102,10 @@ if (params.help) {
 log.info nfcoreHeader()
 def summary = [:]
 summary['reads']                 = params.reads ?: 'Not supplied'
-summary['fasta']                 = params.fasta ?: 'Not supplied'
-summary['Config Profile']         = workflow.profile
-summary['Output']                 = params.outdir
+summary['genomeindex']           = params.genomeindex  ?: 'Not supplied'
+summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
+summary['Config Profile']        = workflow.profile
+summary['Output']                = params.outdir
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
 
@@ -109,7 +114,7 @@ log.info "-\033[2m--------------------------------------------------\033[0m-"
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
-/* --                          STEP 1 : MAPPING                           -- */
+/* --                          STEP   : INDEX                             -- */
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,64 +127,68 @@ if (params.reads) {
             .set{ fastqgz }
 }
 
-if (params.fasta) {
+if (params.genomefasta) {
         Channel
-            .fromPath( params.fasta )
-            .ifEmpty { error "Cannot find any bam files matching: ${params.fasta}" }
-            .map { it -> [(it.baseName =~ /([^\/]*)/)[0][1], it]}
-            .into { fasta_file; test }
+            .fromPath( params.genomefasta )
+            .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
+            //.map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
+            .into { fasta_file ; testfa }
+
+        testfa.view()
+
+        process index_fasta {
+                            label "bwa"
+                            tag "$fasta.simpleName"
+                            publishDir "results/mapping/index/", mode: 'copy'
+
+                            input:
+                              file fasta  from fasta_file
+
+                            output:
+                              file "${fasta.baseName}.*" into index_files , testindexout
+                              file "*_bwa_report.txt" into index_files_report
+
+                            script:
+                              """
+                              bwa index -p ${fasta.baseName} ${fasta} \
+                              &> ${fasta.baseName}_bwa_report.txt
+                              """
+
+                            }
+      testindexout.view()
 }
+
+if (params.genomeindex) {
+        Channel
+            .fromPath( params.genomeindex )
+            .ifEmpty { error "Cannot find any file matching: ${params.genomeindex}" }
+            //.map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
+            .toList()
+            .into { index_files ; testindex }
+        testindex.view()
+
+}
+
+/* AJOUTER POSSIBILITER D'INDEX DEJA FAIT 
+
+./nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608_{1,2}.fq.gz" --genomeindex /home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel.fa.* -profile psmn
 
 test.view()
+[Physcomitrella_patens.Phypa_V3.dna_rm.toplevel.fa, [/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna_rm.toplevel.fa.amb]]
 
-
-
-
-process index_fasta {
-  label "bwa"
-  tag "$fasta_id"
-  publishDir "results/mapping/index/", mode: 'copy'
-
-  input:
-    set fasta_id, file(fasta) from fasta_file
-
-  output:
-    set fasta_id, "${fasta.baseName}.*" into index_files
-    file "*_bwa_report.txt" into index_files_report
-
-  script:
-    """
-    bwa index -p ${fasta.baseName} ${fasta} \
-    &> ${fasta.baseName}_bwa_report.txt
-    """
-}
-
- //   bwa index Physcomitrella_patens.Phypa_V3.dna_rm.toplevel.fa &> ${fasta.baseName}_bwa_report.txt
-
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                          STEP 2 : MAPPING                           -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-/*
-#Step1. MAPPING
-printf "${col} **STEP1** MAPPING pe-reads with bwa (mem, -aM, default) + sort bam output ${NC} \n"
-#Note: bwa allowed for 4 threads. samtools sort syntax (with -T) fixed to new samtools version.
-for ((a=1; a <=$NbRUNS; a++))
-do
-	echo "           ------1.$a Map Sequencing Run n°$a ------"
-	bwa mem -t 4 -aM $REFERENCE ${READS[$((2*$a-1))]} ${READS[$((2*$a))]} | samtools view -buS -|samtools sort - -T $OUTPUT_NAME -o ${OUTPUT_NAME}.SR$a.bam
-done
-
+Probleme tous les fichier ne sont pas recuperer seulement le premier
 */
 
 
-// index.view()
-// fastqgz.view()
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                          STEP   : MAPPING                           -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
 
 process mapping_fastq {
   label 'bwa'
@@ -188,25 +197,26 @@ process mapping_fastq {
 
   input:
   set pair_id, file(reads) from fastqgz
-  set index_id, file(index) from index_files.collect()
+  file index from index_files.collect()
 
   output:
   set pair_id, "${pair_id}.sam" into sam_files
   set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
 
   script:
-"""
-bwa mem -t ${task.cpus} \
--aM ${index_id} ${reads[0]} ${reads[1]} \
--o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
-"""
+  index_id = index[0].baseName
+  """
+  bwa mem -t ${task.cpus} \
+  -aM ${index_id} ${reads[0]} ${reads[1]} \
+  -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
+  """
 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
-/* --                       STEP 2 : SAM to BAM                           -- */
+/* --                       STEP   : SAM to BAM                           -- */
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -234,6 +244,103 @@ samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                       STEP   : READ GROUPS                          -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+
+/*
+Adding Read-Group Informations
+
+for ((a=1; a <=$NbRUNS; a++))
+do
+	echo "           ------2.$a Read Groups for Sequencing Run n°$a ------"
+	java -Xmx${RAM}g -jar $PICARD AddOrReplaceReadGroups \
+	I=$OUTPUT_NAME.SR$a.bam \
+	RGID=${RGID[$a]} RGSM=$RGSM RGLB=$RGLB RGPU=${RGPU[$a]} RGPL=$RGPL \
+	O=$OUTPUT_NAME.RG.SR$a.bam
+	printf "${col} Check & Clean files before next step ${NC} \n"
+	if [ -e $OUTPUT_NAME.RG.SR$a.bam ]; then
+	rm $OUTPUT_NAME.SR$a.bam
+	else     
+	printf "\e[0;31m ##ERROR## Expected bam file was not generated. Script will abort ${NC} \n"    
+	exit 1
+	fi
+done
+*/
+
+process picard_tools {
+  label 'picardtools'
+  tag "$pair_id"
+  publishDir "results/picard/${pair_id}/bam", mode: 'copy'
+
+  input:
+  set pair_id, bam_file from bam_files
+
+  output:
+  set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG
+  set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
+
+  script:
+  //java -Xmx${RAM}g -jar picard AddOrReplaceReadGroups \
+  """
+  PicardCommandLine AddOrReplaceReadGroups \
+       I=${bam_file} \
+       O="${pair_id}_readGroup.bam" \
+       RGID=4 \
+       RGLB=lib1 \
+       RGPL=illumina \
+       RGPU=unit1 \
+       RGSM=20
+
+  PicardCommandLine MarkDuplicates \
+      I="${pair_id}_readGroup.bam" \
+      O="${pair_id}_readGroup_MarkDuplicates.bam" \
+      M="${pair_id}_marked_dup_metrics.txt"
+  """
+
+}
+
+
+//https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                       STEP   : MULTIQC                          -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+ process MultiQC {
+     label "multiQC"
+     publishDir "${params.outdir}/multiQC", mode: 'copy'
+
+     input:
+     //file report_fastqc from fastqc_report.collect().ifEmpty([])
+     //file report_trim from trimming_report.collect().ifEmpty([])
+     //file report_adptoRemoval from adapter_removal_report.collect().ifEmpty([])
+     file report_mapping from mapping_repport_files.collect()
+     file report_picard from picardmetric_files.collect()
+
+     output:
+     file "*multiqc_*" into multiqc_report
+
+
+     when:
+     !params.skipMultiqc
+
+     script:
+     """
+     multiqc -f . \\
+     
+     """
+  }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -256,31 +363,35 @@ def nfcoreHeader() {
     c_white ="\033[0;37m";
 
     return """    -${c_dim}--------------------------------------------------${c_reset}-
-     ${c_blue}   @@@       @@@   @@      @@@@@@@@   @@@@@     @@      @@@     @@@@ @@@@@@@@@@                        
-          @@     @    @ @@      @@    @@    @       &  @      @ @@    #       @@                            
-            @@   @    @   @@     @@@@@,      @     @   @@     @   @@  #       @@                            
-            @@ @    @     @@    @@    @     @     ,    @@     @     @@#       @@                            
-              @@    @@@    @@@@ @@@@    @@@  @@@  @@    @@   @@      @      @@@@                           
-                                                                         
-                                    @@@.        @       @@@      ,@@@@      @@@@@@@@@   @@@@@@@     
-                                 @       @     @/@       @         @,        @@         @     @@    
-                                @@            @  &@      @         @,        @@@@@@(    @ @        
-                                @@           @@@@@@@     @         @,        @@         @@ @       
-                                  @     @   @      @@    @@@@@@    @@@@@@@   @@@@@@@,  @@@   @  @
-    ${c_purple}  ROMUALD MARIN PIPELINE          ${c_reset}
+  ${c_blue}    @@       @@@   @@     @@@@@@@@   @@@@     @@     @@@     @@@@ @@@@@@@@@@ 
+         @     @    @  @     @@    @@    @      @  @     @ @@    @       @@ 
+          @   @    @@@@@@    @@@@@,      @     @@@@@@    @   @@  @       @@ 
+           @ @    @     @@   @@    @     @    @     @@   @     @ @       @@ 
+            @@   @@@    @@@  @@     @  @@@@  @@     @@  @@       @       @@ 
+                                                                       
+                                  @@@.       @      @@@     @@@     @@@@@@@   @@@@@@@
+                               @       @    @ @      @       @       @@       @     @@ 
+                              @@           @   @     @       @       @@@@@@   @ @  
+                               @@         @@@@@@@    @       @       @@       @@ @     
+                                 @@@@@   @      @@   @@@@@   @@@@@  @@@@@@@   @   @ @
+                                                    ${c_purple}  ROMUALD MARIN PIPELINE${c_reset}
     -${c_dim}--------------------------------------------------${c_reset}-
     """.stripIndent()
 }
 
 
+
+
 /*
-    return """    -${c_dim}--------------------------------------------------${c_reset}-
-                                            ${c_green},--.${c_black}/${c_green},-.${c_reset}
-    ${c_blue}        ___     __   __   __   ___     ${c_green}/,-._.--~\'${c_reset}
-    ${c_blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${c_yellow}}  {${c_reset}
-    ${c_blue}  | \\| |       \\__, \\__/ |  \\ |___     ${c_green}\\`-._,-`-,${c_reset}
-                                            ${c_green}`._,._,\'${c_reset}
-    ${c_purple}  ROMUALD MARIN PIPELINE          ${c_reset}
-    -${c_dim}--------------------------------------------------${c_reset}-
-    """.stripIndent()
+ GET EXTENSION FASTA FILE TO TEST IT
+ TRY .BAM OF .VCF IF READ ALLREZADY MAPPED
+
+ fasta_file.into{ fasta_file_test_zip;
+                  fasta_file_zip }
+
+ ext=fasta_file_test_zip.getVal().getExtension()
+
+
+  if(ext=="gz" || ext=="bz" || ext=="zip"){
+
 */
