@@ -75,8 +75,7 @@ Possibilité de faire un index
 
 ou d'utiliser un  index deja crée
 
-`rmarin@cl6242comp1:~/Pipeline_variant_RDP$ ./nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608_{1,2}.fq.gz" --genomeindex "../ref/index/
-Physcomitrella_patens_Phypa_V3_dna_rm_toplevel.fa.*" -profile psmn -resume`
+`rmarin@cl6242comp1:~/Pipeline_variant_RDP$ ./nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608_{1,2}.fq.gz" --genomeindex "../ref/index/Physcomitrella_patens_Phypa_V3_dna_rm_toplevel.fa.*" -profile psmn -resume`
 
 
 ADD read group 
@@ -84,3 +83,14 @@ https://gatk.broadinstitute.org/hc/en-us/articles/360036713171-AddOrReplaceReadG
 
 markduplicate 
 https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
+
+
+test avec read /home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/F*
+
+zcat /home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/FG06_22_B2/V300042688_L3_AE47136387-610_1.fq.gz | head -80000 > ../ref/SAMPLE_V300042688_L3_AE47136387-610_1.fq.gz
+
+
+Creation d'echantionn 
+zcat file.gz | head 10000 > sample_file 
+
+a recopier la doc https://nf-co.re/rnaseq/3.0/usage
