@@ -106,9 +106,7 @@ summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
 summary['Config Profile']        = workflow.profile
 summary['Output']                = params.outdir
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
-log.info "-\033[2m--------------------------------------------------\033[0m-"
-
-
+log.info "-\033[2m-------------------------------------------------------------------------\033[0m-"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,7 +129,7 @@ if (params.genomefasta) {
             .fromPath( params.genomefasta )
             .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
             //.map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
-            .into { fasta_file ; fasta_file2GATK; fasta3}
+            .into { fasta_file ; fasta_file2GATK; fasta3;fasta_variantmetric; fasta_variantcalling ; fasta_joingvcf; fasta_extract ; fasta_dict}
 
         if (!params.genomeindex){
                   process index_fasta {
@@ -196,10 +194,10 @@ Probleme tous les fichier ne sont pas recuperer seulement le premier
 
 
 
-process mapping_fastq {
+process Mapping_reads {
   label 'bwa'
   tag "$pair_id"
-  publishDir "${params.outdir}/mapping/${pair_id}/sam", mode: 'copy'
+  publishDir "${params.outdir}/mapping/", mode: 'copy'
 
   input:
   set pair_id, file(reads) from fastqgz
@@ -228,16 +226,17 @@ process mapping_fastq {
 
 
 
-process sam_to_bam {
+process Sam_to_bam {
   label 'samtools'
   tag "$pair_id"
-  publishDir "${params.outdir}/mapping/${pair_id}/bam", mode: 'copy'
+  publishDir "${params.outdir}/mapping/", mode: 'copy'
 
   input:
   set pair_id, "${pair_id}.sam" from sam_files
 
   output:
-  set pair_id, "${pair_id}.bam" into bam_files
+  set pair_id, "${pair_id}.bam" into bam_files, bam_files_breakdancer
+
   
 
   script:
@@ -257,11 +256,12 @@ samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+//https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
 
-process readGroup_MarkDuplicates {
+process ReadGroup_MarkDuplicates {
   label 'picardtools'
   tag "$pair_id"
-  publishDir "${params.outdir}/picard/${pair_id}/bam", mode: 'copy'
+  publishDir "${params.outdir}/picard/", mode: 'copy'
 
   input:
   set pair_id, bam_file from bam_files
@@ -271,7 +271,6 @@ process readGroup_MarkDuplicates {
   set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
 
   script:
-  //java -Xmx${RAM}g -jar picard AddOrReplaceReadGroups \
   """
   PicardCommandLine AddOrReplaceReadGroups \
        I=${bam_file} \
@@ -291,10 +290,6 @@ process readGroup_MarkDuplicates {
 }
 
 
-//https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
-
-
-
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
@@ -303,31 +298,11 @@ process readGroup_MarkDuplicates {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-/*
-printf "${col} **STEP4** Generating basic stats on bam file ${NC} \n"
-lastbam=`ls *.bam`
-lastbam_base="${lastbam%.*}"
-if [ -n "$ufilter" ]
-then
-	printf "Filtering out unmapped and unpaired reads from bam file \n" 
-	#FLAG / meaning -> 4=unmapped ; 256=not primary alignment ; 3=paired in a proper pair
-	samtools view -hu -F4 $lastbam | samtools view -hu -F256 - | samtools view -hb -f3 - > $lastbam_base.ufilter.bam
-	samtools flagstat $lastbam_base.ufilter.bam > ./metrics/$lastbam_base.ufilter.flagstat.txt
-	if [ -e $lastbam_base.ufilter.bam ]; then    
-		rm $lastbam
-		else printf "\e[0;31m ##ERROR## Expected filtered bam file was not generated during the filtering step. Script will abort ${NC} \n"
-		printf "Last bam generated is: $lastbam"    
-		exit 1
-	fi
-else 
-	samtools flagstat $lastbam > ./metrics/$lastbam_base.flagstat.txt
-fi
-*/
 
-process filter {
+process Filter_index {
   label 'samtools'
   tag "$pair_id"
-  publishDir "${params.outdir}/filter/${pair_id}/bam", mode: 'copy'
+  publishDir "${params.outdir}/filter/", mode: 'copy'
 
   input:
   set pair_id, bam_RD_MD from bam_files_RG_MD
@@ -346,145 +321,18 @@ process filter {
   """
 }
 
-//testoutfilter.view()
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
-/* --                       STEP   : Index BAM                            -- */
+/* --                   STEP   : Variant calling GATK and get metrics     -- */
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
-/*
-#Step5. Index bam
-printf "${col} **STEP5** Indexing BAM${NC} \n"
-lastbam=`ls *.bam`
-lastbam_base="${lastbam%.*}"
-java -Xmx${RAM}g -jar $PICARD BuildBamIndex \
-INPUT=$lastbam
-*/
 
 //https://gatk.broadinstitute.org/hc/en-us/articles/360037057932-BuildBamIndex-Picard-
 
-process index_bam {
-  label 'picardtools'
-  tag "$pair_id"
-  publishDir "${params.outdir}/index_bam/${pair_id}/bam", mode: 'copy'
-
-  input:
-  set pair_id, bam_file from bam_files_RG_MD_filter
-
-  output:
-  set pair_id, "${pair_id}.bai" into bam_index
-
-  script:
-  """
-  PicardCommandLine BuildBamIndex \
-  INPUT="${bam_file}" \
-  OUTPUT="./${pair_id}.bai"
-  """
-}
-
-
-/*
-
-#Step6 (optional). Realign around Indels
-if [ -n "$IndelRealign" ]
-then
-	printf "${col} **STEP6** Realign reads around Indel ${NC} \n"
-	printf "${col}            ------6.1. Creating interval table------- ${NC} \n"
-	java -Xmx${RAM}g -jar $GATKHOME/GenomeAnalysisTK.jar -T RealignerTargetCreator \
-	-R $REFERENCE \
-	-I $lastbam \
-	-o ./metrics/indelrealigner.$OUTPUT_NAME.intervals
-
-	printf "${col}            ------6.2. Realigning Reads in bam------- ${NC} \n"
-	java -Xmx${RAM}g -jar $GATKHOME/GenomeAnalysisTK.jar -T IndelRealigner \
-	-R $REFERENCE \
-	-I $lastbam -o $lastbam_base.realign.bam \
-	-targetIntervals ./metrics/indelrealigner.$OUTPUT_NAME.intervals --filter_bases_not_stored
-
-	printf "${col} Check & Clean files before next step ${NC} \n"
-	if [ -e $lastbam_base.realign.bam ]; then    
-		rm $lastbam_base.ba*
-		else printf "\e[0;31m ##ERROR## Expected realigned bam file was not generated. Script will abort ${NC} \n"
-		printf "Last bam generated is: $lastbam"    
-		exit 1
-	fi
-fi
-
-#Step7 (optional). BQSR (With HC as caller, only one step is necessary when bootstrapping a first call)
-lastbam=`ls *.bam`
-lastbam_base="${lastbam%.*}"
-if [ -n "$BQSR" ]; then
-	printf "${col} **STEP7** BQSR ${NC} \n"
-	#Create a folder to contain files related to the BSQR
-	mkdir BQSR_files
-	printf "${col}            ------7.1. Perform a first variant call (HC)------- ${NC} \n"
-	java -jar -Xmx${RAM}g $GATKHOME/GenomeAnalysisTK.jar -T HaplotypeCaller \
-	-R $REFERENCE \
-	-stand_call_conf 10 \
-	-I $lastbam -o ./BQSR_files/$OUTPUT_NAME.HC0.vcf
-	printf "${col}            ------7.2. Analyze BaseQuality Covariates by boostrapping the previous vcf------- ${NC} \n"
-	java -jar -Xmx${RAM}g $GATKHOME/GenomeAnalysisTK.jar -T BaseRecalibrator \
-	-R $REFERENCE \
-	-I $lastbam -knownSites ./BQSR_files/$OUTPUT_NAME.HC0.vcf \
-	-o ./BQSR_files/$OUTPUT_NAME.BQSR.table
-	printf "${col}            ------7.3. Analyze Remaining covariates after BQSR------- ${NC} \n"
-	java -jar -Xmx${RAM}g $GATKHOME/GenomeAnalysisTK.jar -T BaseRecalibrator \
-	-R $REFERENCE \
-	-I $lastbam -knownSites ./BQSR_files/$OUTPUT_NAME.HC0.vcf \
-	-BQSR ./BQSR_files/$OUTPUT_NAME.BQSR.table \
-	-o ./BQSR_files/$OUTPUT_NAME.post-BQSR.table
-	printf "${col}            ------7.4. Generate plots and stats of the BQSR ------- ${NC} \n"
-	java -jar -Xmx${RAM}g $GATKHOME/GenomeAnalysisTK.jar -T AnalyzeCovariates \
-	-R $REFERENCE \
-	-before ./BQSR_files/$OUTPUT_NAME.BQSR.table -after ./BQSR_files/$OUTPUT_NAME.post-BQSR.table \
-	-plots ./BQSR_files/$OUTPUT_NAME.BQSRplots.pdf
-	printf "${col}            ------7.5. Apply BQSR to the bam ------- ${NC} \n"
-	java -jar -Xmx${RAM}g $GATKHOME/GenomeAnalysisTK.jar -T PrintReads \
-	-R $REFERENCE \
-	-I $lastbam -BQSR ./BQSR_files/$OUTPUT_NAME.BQSR.table \
-	-o $lastbam_base.BQSR.bam
-	printf "${col} Check & Clean files before next step ${NC} \n"
-	if [ -e $lastbam_base.BQSR.bam ]; then    
-		rm $lastbam_base.ba*
-	else     
-		printf "\e[0;31m ##ERROR## Expected BQSR-bam file was not generated. Script will abort ${NC} \n"
-		printf "Last bam generated is: $lastbam"
-	exit 1
-	fi
-fi
-*/
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                       STEP   : Variant calling GATK                 -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-/*
-#Step8. Call (With HC as caller, in gVCF mode)
-printf "${col} **STEP8** Variant Calling --Genotype $OUTPUT_NAME -- ${NC} \n"
-#Take the last bam produced
-lastbam=`ls *.bam`
-lastbam_base="${lastbam%.*}"
-java -jar -Xmx${RAM}g  $GATKHOME/GenomeAnalysisTK.jar -T HaplotypeCaller \
--R $REFERENCE \
---emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000 \
--I $lastbam \
--o $OUTPUT_NAME.gVCF.vcf
-*/
-
-//https://gatk.broadinstitute.org/hc/en-us/articles/360037057932-BuildBamIndex-Picard-
-
-process index_ref_for_GATK {
+process Create_ref_index {
   label 'samtools'
   tag "$fasta"
 
@@ -492,7 +340,7 @@ process index_ref_for_GATK {
   file fasta from fasta_file2GATK
 
   output:
-  file "*" into fasta_fai
+  file "*" into fasta_fai , fasta_fai_variantmetric , fasta_fai_gvcftovcf , fasta_fai_extract
 
   script:
   """
@@ -500,39 +348,370 @@ process index_ref_for_GATK {
   """
 }
 
-process variant_calling {
+process Create_ref_dictionary {
   label 'gatk'
-  tag "$pair_id"
-  publishDir "${params.outdir}/gvf/${pair_id}", mode: 'copy'
-
+  tag "$fasta"
+  
   input:
-  set pair_id, bam_file from bam2GATK
-  set pair_id, bam_file_index from bam_index_samtools
-  file fasta_fai from fasta_fai
-  file fasta from fasta3
-
+  file fasta from  fasta_dict
 
   output:
-  file "*.g.vcf.gz" into final_chan
-  file "*.txt" into gatkmetric_files
+  file "*.dict" into fasta_dict_Variant_calling, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_extract
 
   script:
   """
   gatk CreateSequenceDictionary -R $fasta
+  """
+}
+
+process Variant_calling {
+  label 'gatk'
+  tag "$pair_id"
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  set pair_id, bam_file from bam2GATK
+  set pair_id, bam_file_index from bam_index_samtools
+  file fasta_fai from fasta_fai.collect()
+  file fasta from fasta_variantcalling.collect()
+  file fasta_dict from fasta_dict_Variant_calling.collect()
+
+  output:
+  set pair_id, "${pair_id}.g.vcf.gz" into gvcf_before_rename
+
+  script:
+  """
   gatk --java-options "-Xmx4G" \
   HaplotypeCaller \
   -R $fasta \
   -I $bam_file \
   -O "./${pair_id}.g.vcf.gz" \
   -ERC GVCF
-
-  #rapport multiQC
-  gatk --java-options "-Xmx4G" VariantEval  \
-   -R $fasta \
-   -O "./${pair_id}.txt"\
-   --eval "./${pair_id}.g.vcf.gz" 
   """
 }
+
+process Add_sample_name {
+  label 'picard'
+  tag "$pair_id"
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  set pair_id, filename from gvcf_before_rename
+
+  output:
+  file "*.g.vcf.gz" into gvcf, gvcf2metrics
+
+  script:
+  """
+  PicardCommandLine RenameSampleInVcf \
+  INPUT= $filename \
+  OUTPUT= ${pair_id}.g.vcf.gz \
+  NEW_SAMPLE_NAME= $pair_id
+  
+  """
+}
+
+process Variant_metric {
+  label 'gatk'
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  file file_gvcf from gvcf2metrics.collect()
+  file fasta_fai from fasta_fai_variantmetric
+  file fasta from fasta_variantmetric
+  file fasta_dict from fasta_dict_Variant_metric
+
+  output:
+  file "*.txt" into gatkmetric_files
+
+  script:
+  """
+  ls *g.vcf.gz > myvcf.list
+
+  for input in \$(cat myvcf.list)
+  do
+    gatk --java-options "-Xmx4G" IndexFeatureFile -I \$input
+  done 
+  
+  gatk --java-options "-Xmx4G" VariantEval  \
+   -R $fasta \
+   -O "./GATK_metrics.txt"\
+   --eval myvcf.list
+  """
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                   STEP   : Join gvcf into vcf                       -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+process Gvcf_to_vcf {
+  label 'gatk'
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  file file_gvcf from gvcf.collect()
+  file fasta_fai from fasta_fai_gvcftovcf
+  file fasta from fasta_joingvcf
+  file fasta_dict from fasta_dict_Gvcf_to_vcf
+
+  output:
+  file "final.vcf.gz" into vcf
+
+  script:
+  """
+  ## make list of input variant files
+  ls *g.vcf.gz > myvcf.list
+
+  for input in \$(cat myvcf.list)
+  do
+    gatk --java-options "-Xmx4G" IndexFeatureFile -I \$input
+  done 
+  
+  gatk --java-options "-Xmx4G" CombineGVCFs \
+  -R $fasta \
+  --variant myvcf.list \
+  -O combined.g.vcf.gz
+
+  gatk --java-options "-Xmx4G" GenotypeGVCFs \
+  -R $fasta \
+  -V combined.g.vcf.gz \
+  -O final.vcf.gz
+  """
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                   STEP   : Variant filtering                        -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+process Extract_SNPIndel_Filtration {
+  label 'gatk'
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  file file_vcf from vcf
+  file fasta_fai from fasta_fai_extract
+  file fasta from fasta_extract
+  file fasta_dict from fasta_dict_extract
+
+  output:
+  file "filtered_snps.vcf" into vcf_snp
+  file "filtered_indels.vcf" into vcf_indel
+
+  script:
+  """
+  gatk IndexFeatureFile \
+     -I $file_vcf
+  
+  gatk SelectVariants \
+      -R $fasta \
+      -V $file_vcf \
+      --select-type-to-include SNP \
+      -O raw_snps.vcf
+
+  gatk VariantFiltration \
+        -R $fasta \
+        -V raw_snps.vcf \
+        -O filtered_snps.vcf \
+        -filter-name "QD_filter" -filter "QD < 2.0" \
+        -filter-name "FS_filter" -filter "FS > 60.0" \
+        -filter-name "MQ_filter" -filter "MQ < 40.0" \
+        -filter-name "SOR_filter" -filter "SOR > 4.0" \
+        -filter-name "MQRankSum_filter" -filter "MQRankSum < -12.5" \
+        -filter-name "ReadPosRankSum_filter" -filter "ReadPosRankSum < -8.0"
+  
+  gatk SelectVariants \
+      -R $fasta \
+      -V $file_vcf \
+      --select-type-to-include INDEL \
+      -O raw_indels.vcf
+
+  gatk VariantFiltration \
+        -R $fasta \
+        -V raw_indels.vcf \
+        -O filtered_indels.vcf \
+        -filter-name "QD_filter" -filter "QD < 2.0" \
+        -filter-name "FS_filter" -filter "FS > 200.0" \
+        -filter-name "SOR_filter" -filter "SOR > 10.0" 
+  """
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                   STEP   : Variant filtering                        -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+process Extract_SNPIndel_Filtration {
+  label 'gatk'
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  file file_vcf from vcf
+  file fasta_fai from fasta_fai_extract
+  file fasta from fasta_extract
+  file fasta_dict from fasta_dict_extract
+
+  output:
+  file "filtered_snps.vcf" into vcf_snp
+  file "filtered_indels.vcf" into vcf_indel
+
+  script:
+  """
+  gatk IndexFeatureFile \
+     -I $file_vcf
+  
+  gatk SelectVariants \
+      -R $fasta \
+      -V $file_vcf \
+      --select-type-to-include SNP \
+      -O raw_snps.vcf
+
+  gatk VariantFiltration \
+        -R $fasta \
+        -V raw_snps.vcf \
+        -O filtered_snps.vcf \
+        -filter-name "QD_filter" -filter "QD < 2.0" \
+        -filter-name "FS_filter" -filter "FS > 60.0" \
+        -filter-name "MQ_filter" -filter "MQ < 40.0" \
+        -filter-name "SOR_filter" -filter "SOR > 4.0" \
+        -filter-name "MQRankSum_filter" -filter "MQRankSum < -12.5" \
+        -filter-name "ReadPosRankSum_filter" -filter "ReadPosRankSum < -8.0"
+  
+  gatk SelectVariants \
+      -R $fasta \
+      -V $file_vcf \
+      --select-type-to-include INDEL \
+      -O raw_indels.vcf
+
+  gatk VariantFiltration \
+        -R $fasta \
+        -V raw_indels.vcf \
+        -O filtered_indels.vcf \
+        -filter-name "QD_filter" -filter "QD < 2.0" \
+        -filter-name "FS_filter" -filter "FS > 200.0" \
+        -filter-name "SOR_filter" -filter "SOR > 10.0" 
+  """
+}
+
+
+// A CONTINUER VARIANT RECALIBRATION pour snp et indel 
+// https://gencore.bio.nyu.edu/variant-calling-pipeline-gatk4/
+// voir script VQSR_dna_raw
+
+// Appel de variant structuraux avec pindel et breakdancer
+/*
+process SV_calling {
+  label 'breakdancer'
+  publishDir "${params.outdir}/breakdancer/", mode: 'copy'
+
+  input:
+  set pair_id, bam from bam_files_breakdancer
+
+  output:
+  file "*.txt" into gatkmetric_files
+
+  script:
+  """
+  bam2cfg.pl -g -h tumor.bam normal.bam > BRC6.cfg 
+
+  breakdancer_max -t -q 10 -d BRC6.ctx BRC6.cfg > BRC6.ctx 
+  """
+}
+
+ */
+
+/*
+//https://gatk.broadinstitute.org/hc/en-us/articles/360037055952-SelectVariants
+process Filter_lowdp {
+  label 'snpsift'
+  publishDir "${params.outdir}/vcf/", mode: 'copy'
+
+  input:
+  file file_vcf from vcf_filter
+
+  output:
+  file "group_sample_filter.vcf" into vcf_filter
+
+  script:
+  """
+  zcat $file_vcf | SnpSift filter "( GEN[ALL].DP >= 3 ) & isHom(GEN[ALL])" > group_sample_filter.vcf
+
+  """
+}
+
+#1. Background SNPs
+printf "**STEP1** Extract bona fide background SNPs \n"
+java -Xmx48g -jar $GATKHOME/GenomeAnalysisTK.jar -T SelectVariants \
+-R $REFERENCE \
+--variant $input_vcf \
+-select 'vc.isSNP()' \
+-o out.vcf
+cat out.vcf | java -Xmx48g -jar $snpEff_dir/SnpSift.jar filter "countVariant() = 6" > VQSR/$input_base.bckgd_SNP.vcf
+
+
+#2. Background Indels
+printf "**STEP2** Extract bona fide background Indels \n"
+java -Xmx48g -jar $GATKHOME/GenomeAnalysisTK.jar -T SelectVariants \
+-R $REFERENCE \
+--variant $input_vcf \
+-select 'vc.isIndel()' \
+-o out.vcf
+cat out.vcf | java -Xmx48g -jar $snpEff_dir/SnpSift.jar filter "countVariant() = 6" > VQSR/$input_base.bckgd_Indels.vcf
+#clean
+rm out.vcf*
+*/
+
+/*
+#variable declaration
+snpEff_dir=/applis/PSMN/debian9/software/Generic/snpEff/4.3t/snpEff/
+REFERENCE=/home/fbesnard/Reference_genomes/Moss/Physcomitrella_patens.Phypa_V3.dna.toplevel.fa
+input_vcf=VXLvsMS.dna.filter.VQSR.vcf
+input_base="${input_vcf%.*}"
+
+SS=VXL
+mutantfile=/Xnfs/rdpdb/moss/VariantAnalysis_E1/mutagenized_samples.txt
+
+#internal functions
+function specific_call () {
+cat $1 | java -jar $snpEff_dir/SnpSift.jar filter "(FILTER = 'PASS') & isHom(GEN[${MS[1]}]) & !(GEN[${MS[1]}].GT = './.') & !(GEN[${MS[1]}].GT = GEN[${SS}].GT) & !(GEN[${MS[1]}].GT = GEN[${MS[2]}].GT) & !(GEN[${MS[1]}].GT = GEN[${MS[3]}].GT) & !(GEN[${MS[1]}].GT = GEN[${MS[4]}].GT) & !(GEN[${MS[1]}].GT = GEN[${MS[5]}].GT)"
+}
+
+#body
+cd $ExecutionDIR
+
+declare -A MS
+idx=1
+while read line ; do 
+                MS[$idx]=$line
+                idx=$((idx + 1))
+        done < <(cat $mutantfile)  #Process substitution to bypass the subshell created by the while (http://mywiki.wooledge.org/BashFAQ/024)  
+echo "Nb of samples in the array: ${#MS[@]}"
+
+printf "Compute specific variants for sample ${MS[1]} \n"
+specific_call $input_vcf >> ${MS[1]}.dna.specific.vcf
+
+for ((i=2; i<=${#MS[@]}; i++)); do
+                temp=${MS[1]}
+                MS[1]=${MS[$i]}
+                MS[$i]=$temp
+                printf "Compute specific variants for sample ${MS[1]} \n"
+                specific_call $input_vcf >> ${MS[1]}.dna.specific.vcf
+        done
+printf "end \n"
+*/
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -549,8 +728,6 @@ process variant_calling {
 
      input:
      file report_flagstat from flagstat_files.collect()
-     //file report_trim from trimming_report.collect().ifEmpty([])
-     //file report_adptoRemoval from adapter_removal_report.collect().ifEmpty([])
      file report_mapping from mapping_repport_files.collect()
      file report_picard from picardmetric_files.collect()
      file report_picard from gatkmetric_files.collect()
@@ -587,20 +764,20 @@ def nfcoreHeader() {
     c_cyan = "\033[0;36m";
     c_white ="\033[0;37m";
 
-    return """-${c_dim}--------------------------------------------------${c_reset}-
+    return """-${c_dim}-------------------------------------------------------------------------${c_reset}-
 ${c_purple}    @@      @@@   @@     @@@@@@@@   @@@@      @@    @@@     @@@@  @@@@@@@@@@ 
 ${c_purple}      @     @@   @  @     @@    @@    @      @  @     @ @@    @       @@ 
 ${c_purple}       @   @@   @@@@@@    @@@@@,      @     @@@@@@    @   @@  @       @@ 
 ${c_green}        @ @@   @     @@   @@    @     @    @     @@   @     @ @       @@ 
 ${c_green}         @@   @@@    @@@  @@     @  @@@@  @@      @@ @@       @       @@ 
 ${c_purple}                                                           
-${c_cyan}                              @@@.       @      @@@     @@@     @@@@@@@   @@@@@@@
-${c_cyan}                           @       @    @ @      @       @       @@       @     @@ 
-${c_cyan}                          @@           @   @     @       @       @@@@@@   @@@@@ 
-${c_blue}                           @@         @@@@@@@    @       @       @@       @@   @     
-${c_blue}                             @@@@@   @      @@   @@@@@   @@@@@  @@@@@@@   @     @@
-${c_yellow}                                                           ROMUALD MARIN PIPELINE${c_reset}
-    -${c_dim}--------------------------------------------------${c_reset}-
+${c_cyan}                           @@@.       @      @@@     @@@     @@@@@@@   @@@@@@@
+${c_cyan}                        @       @    @ @      @       @       @@       @     @@ 
+${c_cyan}                       @@           @   @     @       @       @@@@@@   @@@@@ 
+${c_blue}                        @@         @@@@@@@    @       @       @@       @@   @     
+${c_blue}                          @@@@@   @      @@   @@@@@   @@@@@  @@@@@@@   @     @@
+${c_yellow}                                                       ROMUALD MARIN PIPELINE${c_reset}
+-${c_dim}-------------------------------------------------------------------------${c_reset}-
     """.stripIndent()
 }
 
