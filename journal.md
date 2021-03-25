@@ -64,25 +64,13 @@ TEST_sampling/
 
 ## Objectif : Creation du pipeline en nextflow
 
-installation de nextflow 
+Installation de nextflow 
 https://www.nextflow.io/docs/latest/getstarted.html
 
-Récuperation d'un pipeline existant avec fichier de config 
+Récuperation d'un pipeline existant avec fichier de config provenant de Laurent modolo https://gitbio.ens-lyon.fr/lmodolo
 
-Modicication du pipeline afin de faire comme le script  GATK_fq-to-gVCF.v4_PSMN.sh
-
-Possibilité de faire un index
-
-ou d'utiliser un  index deja crée
-
-`rmarin@cl6242comp1:~/Pipeline_variant_RDP$ ./nextflow run script/GATK_to_gVCF.nf -c script/GATK_to_gVCF.config --reads "/home/rmarin/V300042688_L2_AE06084935-608_{1,2}.fq.gz" --genomeindex "../ref/index/Physcomitrella_patens_Phypa_V3_dna_rm_toplevel.fa.*" -profile psmn -resume`
-
-
-ADD read group 
-https://gatk.broadinstitute.org/hc/en-us/articles/360036713171-AddOrReplaceReadGroups-Picard-
-
-markduplicate 
-https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
+Le bug est de transformer les differentes scripts dans un pipeline nextflow : 
+Modification du pipeline afin de faire comme le script GATK_fq-to-gVCF.v4_PSMN.sh
 
 
 test avec read /home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/F*
@@ -91,6 +79,78 @@ zcat /home/ycoude01/F19FTSEUHT1414_MOSkriR/Clean/FG06_22_B2/V300042688_L3_AE4713
 
 
 Creation d'echantionn 
-zcat file.gz | head 10000 > sample_file 
+zcat file.gz | head -10000 > sample_file 
 
 a recopier la doc https://nf-co.re/rnaseq/3.0/usage
+
+Test avec les vrais echantillons :
+```rmarin@cl6226comp1:~/Pipeline_variant_RDP$ ls ../ref/reads/
+V300042688_L2_AE06084935-608_1.fq.gz  V300042688_L2_AE97758923-605_1.fq.gz  V300042688_L4_AE59776336-607_1.fq.gz  V300042688_L2_AE06084935-608_2.fq.gz  V300042688_L2_AE97758923-605_2.fq.gz  V300042688_L4_AE59776336-607_2.fq.gz
+V300042688_L2_AE06354351-606_1.fq.gz  V300042688_L3_AE59776336-607_1.fq.gz
+V300042688_L2_AE06354351-606_2.fq.gz  V300042688_L3_AE59776336-607_2.fq.gz
+```
+En sachant que l strating strain est SAMPLE_V300042688_L2_AE97758923-605_2 
+
+## Determination du type recalibration pour GATK
+
+Ce test est fait sur les fichiers de SNP globeau apres la separation en snp/indel avec les data ci dessus 
+
+Lien de la methode avec BQSR https://gencore.bio.nyu.edu/variant-calling-pipeline-gatk4/ 
+
+| |Normal | BQSR | VQSR |
+| :--------------- |:---------------:|:---------------:| -----:|
+SNP | 913977 | 906624 | 
+INDEL | 59643 | 58325
+
+
+
+## Determination du type de Bam a donner pour les programmes de VS
+
+Certain bam sont filtés afin d'enlever tous les reads non mappé dans le process FilteringandIndexing_Bam grace a la commande samtools : 
+
+`samtools view -hu -F4 ${bam_RD_MD} | samtools view -hu -F256 - | samtools view -hb -f3 - > ${pair_id}_ufilter.bam `
+### Test du type de données d'entrées dans Breakdancer : 
+
+| Sample | Add_ReadGroup_and_MarkDuplicates_bam | Filtering_and_indexing_bam |
+| :--------------- |:---------------:| -----:|
+ V300042688_L2_AE06084935-608 | 5606 | 1543 |
+V300042688_L2_AE06354351-606 | 5415 | 1357
+V300042688_L2_AE97758923-605 (SS) | 5250 | 1391
+V300042688_L3_AE59776336-607 | 3011 | 601 | 
+V300042688_L4_AE59776336-607 | 3087 | 637
+
+Fonctionnement de Breakdancer qui fait qu'il faut mieux les filtres ou pas ? 
+
+### Test du type de données d'entrées dans Pindel : 
+
+|Sample | Add_ReadGroup_and_MarkDuplicates_bam and insert lenght from breakdancer | Filtering_and_indexing_bam |
+| :--------------- |:---------------:| -----:|
+V300042688_L2_AE06084935-608 | |676709
+V300042688_L2_AE06354351-606 | | 655720
+V300042688_L2_AE97758923-605 (SS)  | | 63801
+V300042688_L3_AE59776336-607 | 536783 | 470922
+V300042688_L4_AE59776336-607 | 539882 | 473690
+
+A prendre en compte les données obtenu avec le process Filtering_and_indexing_bam avait une valeur de taille d'insert par defaut de 500. Le second test a été fait en corrigant cela grace au fichier de config generé par breakdancer en recuperant la taille d'insert moyen pour plus de précision
+
+Fonctionnement de Pindel ????
+
+# Filtration de GATK 
+Aucune diff entre les variants filtrer ou non avec les valeurs par defaut de fitration de GATK 
+
+work/16/10ddf00ce60169eb745d7926ecaa0a/filtered_indels.vcf:59643
+work/16/10ddf00ce60169eb745d7926ecaa0a/filtered_snps.vcf:913977
+work/16/10ddf00ce60169eb745d7926ecaa0a/raw_indels.vcf:59643
+work/16/10ddf00ce60169eb745d7926ecaa0a/raw_snps.vcf:913977
+
+Probleme avec VariantFiltration de GATK https://gatk.broadinstitute.org/hc/en-us/articles/360037434691-VariantFiltration
+Certain sont "pass" et d'autre variant sont annoté avec le nom du filtre et n'ont pas été supprimés 
+Attention certain PASS avec une profondeur de 1 
+a supprimé
+par exemple : 
+1	25210102	.	G	T	39.13	PASS	AC=2;AF=1.00;AN=2;DP=1;Ex
+
+Pour cela ajour d'une etape en plus dans le process Extract_SNPIndel_Filtration
+`gatk SelectVariants --exclude-filtered -V pre_filtered_indels.vcf -O indels.vcf`
+
+Appliquer VQSR https://gatk.broadinstitute.org/hc/en-us/articles/360035531612-Variant-Quality-Score-Recalibration-VQSR-
