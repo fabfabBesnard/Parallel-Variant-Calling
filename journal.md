@@ -97,11 +97,14 @@ Ce test est fait sur les fichiers de SNP globeau apres la separation en snp/inde
 
 Lien de la methode avec BQSR https://gencore.bio.nyu.edu/variant-calling-pipeline-gatk4/ 
 
-| |Normal | BQSR | VQSR |
-| :--------------- |:---------------:|:---------------:| -----:|
-SNP | 913977 | 906624 | 
-INDEL | 59643 | 58325
+| |Sans filtre | Normal | BQSR | VQSR |
+| :---------------|:---------------: |:---------------:|:---------------:| -----:|
+SNP | 913977 |812421 | 814712 | 
+INDEL |59643| 59643 | 57523 |
 
+VariantFiltration de GATK https://gatk.broadinstitute.org/hc/en-us/articles/360037434691-VariantFiltration
+Certain sont "pass" et d'autre variant sont annotés avec le nom du filtre et n'ont pas été supprimés Pour cela ajour d'une etape en plus dans le process Extract_SNPIndel_Filtration
+`gatk SelectVariants --exclude-filtered -V pre_filtered_indels.vcf -O indels.vcf`
 
 
 ## Determination du type de Bam a donner pour les programmes de VS
@@ -119,6 +122,12 @@ V300042688_L2_AE97758923-605 (SS) | 5250 | 1391
 V300042688_L3_AE59776336-607 | 3011 | 601 | 
 V300042688_L4_AE59776336-607 | 3087 | 637
 
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3661775/
+
+Filtrer red non pairer pour BDancer
+Pindel si pas sa paire pas grave parce que breakpoint donc on garde tout 
+
+
 Fonctionnement de Breakdancer qui fait qu'il faut mieux les filtres ou pas ? 
 
 ### Test du type de données d'entrées dans Pindel : 
@@ -133,24 +142,14 @@ V300042688_L4_AE59776336-607 | 539882 | 473690
 
 A prendre en compte les données obtenu avec le process Filtering_and_indexing_bam avait une valeur de taille d'insert par defaut de 500. Le second test a été fait en corrigant cela grace au fichier de config generé par breakdancer en recuperant la taille d'insert moyen pour plus de précision
 
-Fonctionnement de Pindel ????
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2781750/
+Pindel utiliser les breakpoint comme point d'ancrage pour detecter les indel de plus ou moins grande taille donc a priori mieux vaut enever les unampped et les unpair
 
-# Filtration de GATK 
-Aucune diff entre les variants filtrer ou non avec les valeurs par defaut de fitration de GATK 
 
-work/16/10ddf00ce60169eb745d7926ecaa0a/filtered_indels.vcf:59643
-work/16/10ddf00ce60169eb745d7926ecaa0a/filtered_snps.vcf:913977
-work/16/10ddf00ce60169eb745d7926ecaa0a/raw_indels.vcf:59643
-work/16/10ddf00ce60169eb745d7926ecaa0a/raw_snps.vcf:913977
-
-Probleme avec VariantFiltration de GATK https://gatk.broadinstitute.org/hc/en-us/articles/360037434691-VariantFiltration
-Certain sont "pass" et d'autre variant sont annoté avec le nom du filtre et n'ont pas été supprimés 
-Attention certain PASS avec une profondeur de 1 
-a supprimé
-par exemple : 
-1	25210102	.	G	T	39.13	PASS	AC=2;AF=1.00;AN=2;DP=1;Ex
-
-Pour cela ajour d'une etape en plus dans le process Extract_SNPIndel_Filtration
-`gatk SelectVariants --exclude-filtered -V pre_filtered_indels.vcf -O indels.vcf`
 
 Appliquer VQSR https://gatk.broadinstitute.org/hc/en-us/articles/360035531612-Variant-Quality-Score-Recalibration-VQSR-
+
+
+https://www.nextflow.io/blog/2016/error-recovery-and-automatic-resources-management.html
+Trop de ram utilisé -> error 140 
+chnegemebt de queues dans la config
