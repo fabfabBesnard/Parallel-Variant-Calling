@@ -15,10 +15,10 @@ def helpMessage() {
       --reads                    Full path to directory and name of reads in fastq.gz
       --genomefasta              Full path to file of reference genome (.fa or .fasta or .gz) 
       --annotation               Full path to file of annotation genome (.gff) 
-      --scriptdir                Full projectdir path !!!!
+      --scriptdir                Path to directory who contain script. For example /Pipeline_variant_RDP/script.nf'
     Optionnal arguments:
       --genomeindex              Full path to directory of index (Optionnal)
-      --vqsrfile                 Variant calibration step, give a refernce fin in vcf with short indel and snp (default: false).
+      --vqsrfile                 Variant calibration step, give a refernce file in vcf with short indel and snp (default: false).
       --sampletable              Table in .csv who contain name of different sample (sep : ',')
       --vqsrrate                 Defaut 99.0
 

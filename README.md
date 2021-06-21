@@ -33,7 +33,7 @@ nextflow run -profile [psmn,singularity] VariantCaller.nf
 The best way to do this is to run nextflow using a screen or tmux terminal.
 
 
-Example with tmux
+Example with tmux :
 ```
 # Open a new terminal
 tmux
@@ -87,7 +87,7 @@ V300042688_L4_AE47136387-610,Mutant3
 Command line : 
 
 ```
-./nextflow run script/VariantCaller.nf -c script/VariantCaller.config --reads "/home/rmarin/Mydata/V300017433_L4_B5GARAwyvRAAABABA-502_{1,2}.f*" --genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa --vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz-profile psmn -resume --outdir My_analyse
+./nextflow run script/VariantCaller.nf -c script/VariantCaller.config --reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" --genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa --vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz-profile psmn --annotationname 'Arabidopsis_thaliana' -resume --outdir My_analyse
 ```
 
 ```
