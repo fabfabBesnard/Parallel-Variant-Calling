@@ -18,8 +18,7 @@ def helpMessage() {
       --scriptdir                Full projectdir path !!!!
     Optionnal arguments:
       --genomeindex              Full path to directory of index (Optionnal)
-      --skipbqsr                 Skip base calibration step (default: activated).
-      --skipvqsr                 Skip variant calibration step (default: activated).
+      --vqsrfile                 Variant calibration step, give a refernce fin in vcf with short indel and snp (default: false).
       --sampletable              Table in .csv who contain name of different sample (sep : ',')
       --vqsrrate                 Defaut 99.0
 
@@ -77,9 +76,7 @@ summary['annotationname']        = params.annotationname
 summary['sampletable']           = params.sampletable  ?: 'Not supplied'
 summary['minglobalqual']         = params.minglobalqual
 summary['mindepth']              = params.mindepth
-summary['BQSR']                  = params.skipbqsr ? 'Skipped' : 'Yes'
-summary['VQSR']                  = params.skipbqsr ? 'Skipped' : 'Yes'
-summary['removescaffold']        = params.removescaffold ? 'Skipped' : 'Yes'
+summary['VQSR']                  = params.vqsrfile
 summary['Output']                = params.outdir
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
 log.info "-\033[2m-------------------------------------------------------------------------\033[0m-"
@@ -113,11 +110,10 @@ if (params.genomefasta) {
             fasta_file2GATK; 
             fasta3;fasta_variantmetric; 
             fasta_variantcalling ; fasta_joingvcf; 
-            fasta_joingvcf_after_bqsr; fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
-            fasta_extract_after_bqsr; fasta_BaseRecalibrator ; 
+            fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
+            fasta_BaseRecalibrator ; 
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ;
-            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;
-            fasta_variantcalling_after_bqsr;  fasta_pindel ; fasta_cnv; fasta_metasv}
+            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
         if (!params.genomeindex){
                   process index_fasta {
@@ -262,29 +258,7 @@ else{
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-if (params.removescaffold) {
-  process Sam_to_bam_remove_scaffold{
-    label 'samtools'
-    tag "$pair_id"
-    publishDir "${params.outdir}/mapping/", mode: 'copy'
-
-    input:
-    set pair_id, "${pair_id}.sam" from sam_files
-    val pattern from params.scaffoldpattern
-
-    output:
-    set pair_id, "${pair_id}.bam" into bam_files
-
-    script:
-    """
-    grep -v $pattern ${pair_id}.sam > ${pair_id}_rm.sam
-    samtools view -buS ${pair_id}_rm.sam | samtools sort - -o ${pair_id}.bam
-    """
-  }
-  //voir comment donner une liste de champ a enlever dans un fichier avec un cat et une boucle grep -v 
-}
-else{
- process Sam_to_bam {
+process Sam_to_bam {
     label 'samtools'
     tag "$pair_id"
     publishDir "${params.outdir}/mapping/", mode: 'copy'
@@ -300,7 +274,6 @@ else{
     samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
     """
   }
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -316,13 +289,12 @@ else{
 process Add_ReadGroup_and_MarkDuplicates_bam {
   label 'picardtools'
   tag "$pair_id"
-  publishDir "${params.outdir}/picard/", mode: 'copy'
 
   input:
   set pair_id, bam_file from bam_files
 
   output:
-  set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_files_RG_MD_for_bqsr , bam_for_strartingstrain 
+  set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
   set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
 
   script:
@@ -353,7 +325,6 @@ process Add_ReadGroup_and_MarkDuplicates_bam {
 process Filtering_and_Indexing_bam {
   label 'samtools'
   tag "$pair_id"
-  publishDir "${params.outdir}/filter/", mode: 'copy'
 
   input:
   set pair_id, bam_RD_MD from bam_files_RG_MD
@@ -361,7 +332,7 @@ process Filtering_and_Indexing_bam {
   output:
   set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
   set pair_id, "${pair_id}_ufilter_flagstat.txt" into flagstat_files
-  set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools , bam_index_samtools_after_bqsr
+  set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools
   set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_cnvnator, non_filtered_bam_files_breakdancer , non_filtered_bam_files_metasv
 
   script:
@@ -395,7 +366,7 @@ process Create_ref_index {
   file fasta from fasta_file2GATK
 
   output:
-  file "*" into fasta_fai , fasta_fai_VQSR, fasta_fai_Structural_Variant_calling_GATK,fasta_fai_Structural_Variant_calling_GATK_prepare, fasta_fai_variantmetric , fasta_fai_gvcftovcf ,fasta_fai_gvcftovcf_after_bqsr, fasta_fai_extract_Extract_SNP_VQSR ,fasta_fai_Extract_INDEL_VQSR , fasta_fai_extract_after_bqsr , fasta_fai_BaseRecalibrator , fasta_fai_after_bqsr , fasta_fai_pindel , fastafai_metasv
+  file "*" into fasta_fai , fasta_fai_VQSR, fasta_fai_Structural_Variant_calling_GATK,fasta_fai_Structural_Variant_calling_GATK_prepare, fasta_fai_variantmetric , fasta_fai_gvcftovcf ,fasta_fai_gvcftovcf_after_bqsr, fasta_fai_extract_Extract_SNP_VQSR ,fasta_fai_Extract_INDEL_VQSR , fasta_fai_BaseRecalibrator , fasta_fai_after_bqsr , fasta_fai_pindel , fastafai_metasv
 
   script:
   """
@@ -611,7 +582,144 @@ process Extract_INDEL_and_filtering {
 }
 
 
-process Extract_specific_variant{
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                         STEP   : VQSR                               -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+ //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
+ //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
+if (params.vqsrfile) {
+
+  Channel
+            .fromPath( params.vqsrfile )
+            .ifEmpty { error "Cannot find any file matching: ${params.vqsrfile}" }
+            .set{ vcfforvqsr }
+
+  process  VariantQualityScoreRecalibration {
+    label 'gatk'
+    tag "snp + indel"
+    publishDir "${params.outdir}/variant/", mode: 'copy'
+
+    input:
+    file rawsnp from rawsnp
+    file rawindel from rawindel
+    file fasta_fai from fasta_fai_VQSR
+    file fasta from fasta_VQSR
+    file fasta_dict from fasta_dict_VQSR
+    file vqsrvcf from vcfforvqsr
+    val percent from params.vqsrrate
+
+    output:
+    file "filtered_indels_VQSR.vcf" into indelVQSR
+    file "filtered_snps_VQSR.vcf" into snpVQSR
+    
+    script:
+    """
+    ## make list of input variant files
+    ls *.vcf* > myvcf.list
+
+    for input in \$(cat myvcf.list)
+    do
+       gatk --java-options "-Xmx${task.memory.giga}g" IndexFeatureFile -I \$input
+    done 
+
+  
+    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
+      -R $fasta \
+      -V $vqsrvcf \
+      --select-type-to-include INDEL \
+      -O indels.vcf
+    
+    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
+      -R $fasta \
+      -V $vqsrvcf \
+      --select-type-to-include SNP \
+      -O snps.vcf
+
+    gatk --java-options "-Xmx${task.memory.giga}g" VariantRecalibrator \
+        -R $fasta \
+        -V $rawsnp \
+        -tranche $percent \
+        --resource:backgroundSNP,known=true,training=true,truth=true,prior=10.0 snps.vcf \
+        -an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR \
+        -mode SNP \
+        -O output_snps.recal \
+        --tranches-file output_snps.tranches \
+        --rscript-file output_snps.plots.R \
+        --max-gaussians 4
+
+    gatk --java-options "-Xmx${task.memory.giga}g" ApplyVQSR \
+        -R $fasta \
+        -V $rawsnp \
+        -O pre-filtered_snps_VQSR.vcf \
+        --truth-sensitivity-filter-level $percent \
+        --tranches-file output_snps.tranches \
+        --recal-file output_snps.recal \
+        -mode SNP
+    
+    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
+      -R $fasta \
+      -V pre-filtered_snps_VQSR.vcf \
+      --exclude-filtered \
+      -O filtered_snps_VQSR.vcf
+
+    gatk --java-options "-Xmx${task.memory.giga}g" VariantRecalibrator \
+      -R $fasta \
+      -V $rawindel \
+      --trust-all-polymorphic \
+      -tranche $percent \
+      -an FS -an ReadPosRankSum -an MQRankSum -an QD -an SOR -an DP \
+      -mode INDEL \
+      --resource:backgroundindel,known=true,training=true,truth=true,prior=10.0 indels.vcf \
+      -O cohort_indels.recal \
+      --max-gaussians 4 \
+      --tranches-file cohort_indels.tranches
+
+    gatk --java-options "-Xmx${task.memory.giga}g" ApplyVQSR \
+        -R $fasta \
+        -V $rawindel \
+        -O pre-filtered_indels_VQSR.vcf \
+        --truth-sensitivity-filter-level $percent \
+        --tranches-file cohort_indels.tranches \
+        --recal-file cohort_indels.recal \
+        -mode INDEL
+    
+    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
+      -R $fasta \
+      -V pre-filtered_indels_VQSR.vcf \
+      --exclude-filtered \
+      -O filtered_indels_VQSR.vcf
+    """
+  }
+
+  process Extract_specific_variant_VQSR{
+        // No label ! Launch with PSMN configuration
+        tag "$vcf"
+        publishDir "${params.outdir}/variant/", mode: 'copy'
+
+        input:
+        val scriptpath from params.scriptdir
+        val qual from params.minglobalqual
+        val dpmin from params.mindepth
+        //val wt from params.WT 
+        file vcf from indelVQSR.concat(snpVQSR)
+
+        output:
+        file "*.vcf" into good_variant
+
+        script:
+        """
+        $scriptpath/extract_specific.py $vcf $qual $dpmin
+        """
+    }
+
+}
+else{
+  process Extract_specific_variant{
         // No label ! Launch with PSMN configuration
         tag "$vcf"
         publishDir "${params.outdir}/variant/", mode: 'copy'
@@ -631,297 +739,7 @@ process Extract_specific_variant{
         $scriptpath/extract_specific.py $vcf $qual $dpmin
         """
     }
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                         STEP   : VQSR                               -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-if (!params.skipvqsr) {
-  process Backgroundmutation{
-        label 'snpsift'
-        tag "$file_vcf"
-        publishDir "${params.outdir}/variant/", mode: 'copy'
-
-        input:
-        file file_vcf from snp_indel_filter_2
-
-        output:
-        file "*.vcf" into bg
-
-        script:
-        """
-        nbsample=\$(grep "#CHROM" $file_vcf | wc -w)
-        nbsample=\$((\$nbsample - 9 ))
-        SnpSift filter "countVariant() = \$nbsample" $file_vcf > BG_${file_vcf}
-        """
-    }
- //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
- //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
-  process VQSR {
-    label 'gatk'
-    tag "snp + indel"
-    publishDir "${params.outdir}/variant/", mode: 'copy'
-
-    input:
-    file rawsnp from rawsnp
-    file rawindel from rawindel
-    file bg from bg.collect()
-    file vcffiltered from snp_indel_filter_for_vqsr.collect()
-    file fasta_fai from fasta_fai_VQSR
-    file fasta from fasta_VQSR
-    file fasta_dict from fasta_dict_VQSR
-    val percent from params.vqsrrate
-
-    output:
-    file "*" into outvqsr
-
-    // supprimer ressoures 2 une fois que la verification des bg var est faite avec snpsift
-    //         --resource:filteredlowdpandheterozygous,known=true,training=true,truth=true,prior=12.0 lowDPfilter__filtered_snps.vcf \
-    script:
-    """
-      ## make list of input variant files
-    ls *.vcf > myvcf.list
-
-    for input in \$(cat myvcf.list)
-    do
-       gatk --java-options "-Xmx${task.memory.giga}g" IndexFeatureFile -I \$input
-    done 
-
-    gatk --java-options "-Xmx${task.memory.giga}g" VariantRecalibrator \
-        -R $fasta \
-        -V $rawsnp \
-        -tranche $percent \
-        --resource:backgroundSNP,known=false,training=true,truth=true,prior=12.0 BG_lowDPfilter__filtered_snps.vcf \
-        -an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR \
-        -mode SNP \
-        -O output.recal \
-        --tranches-file output.tranches \
-        --rscript-file output.plots.R
-
-    gatk --java-options "-Xmx${task.memory.giga}g" ApplyVQSR \
-        -R $fasta \
-        -V $rawsnp \
-        -O pre-filtered_snps_VQSR.vcf \
-        --truth-sensitivity-filter-level $percent \
-        --tranches-file output.tranches \
-        --recal-file output.recal \
-        -mode SNP
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-      -R $fasta \
-      -V pre-filtered_snps_VQSR.vcf \
-      --exclude-filtered \
-      -O filtered_snps_VQSR.vcf
-
-
-    gatk --java-options "-Xmx${task.memory.giga}g" VariantRecalibrator \
-      -R $fasta \
-      -V $rawindel \
-      --trust-all-polymorphic \
-      -tranche $percent \
-      -an FS -an ReadPosRankSum -an MQRankSum -an QD -an SOR -an DP \
-      -mode INDEL \
-      --resource:backgroundindel,known=false,training=true,truth=true,prior=12.0 BG_lowDPfilter__filtered_indels.vcf \
-      -O cohort_indels.recal \
-      --max-gaussians 4\
-      --tranches-file cohort_indels.tranches
-
-    gatk --java-options "-Xmx${task.memory.giga}g" ApplyVQSR \
-        -R $fasta \
-        -V $rawindel \
-        -O pre-filtered_indels_VQSR.vcf \
-        --truth-sensitivity-filter-level $percent \
-        --tranches-file cohort_indels.tranches \
-        --recal-file cohort_indels.recal \
-        -mode INDEL
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-      -R $fasta \
-      -V pre-filtered_indels_VQSR.vcf \
-      --exclude-filtered \
-      -O filtered_indels_VQSR.vcf
-    """
-  }
 }
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                         STEP   : BQSR                               -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-if (!params.skipbqsr) {
-  process BaseRecalibrator {
-    label 'gatk'
-    tag "$pair_id"
-    publishDir "${params.outdir}/variant_after_bqsr/", mode: 'copy'
-
-    input:
-    file fasta_fai from fasta_fai_BaseRecalibrator.collect()
-    file fasta from fasta_BaseRecalibrator.collect()
-    file fasta_dict from fasta_dict_BaseRecalibrator.collect()
-    file bqsr_snps from bqsr_vcf_snp.collect()
-    file bqsr_indels from bqsr_vcf_indel.collect()
-    set pair_id, bam from bam_files_RG_MD_for_bqsr
-
-    output:
-    set pair_id, "${pair_id}_recal_reads.bam" into bam_after_bqsr
-    
-    script:
-    """
-    gatk --java-options "-Xmx${task.memory.giga}g"  IndexFeatureFile -I $bqsr_snps
-
-    gatk --java-options "-Xmx${task.memory.giga}g"  IndexFeatureFile -I $bqsr_indels
-
-    gatk --java-options "-Xmx${task.memory.giga}g" BaseRecalibrator \
-        -R $fasta \
-        -I $bam \
-        --known-sites $bqsr_snps \
-        --known-sites $bqsr_indels \
-        -O recal_data.table 
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" ApplyBQSR \
-        -R $fasta \
-        -I $bam \
-        -bqsr recal_data.table \
-        -O ${pair_id}_recal_reads.bam
-    """
-  }
-
-  process Variant_calling_after_bqsr {
-    label 'gatk'
-    tag "$pair_id"
-    publishDir "${params.outdir}/variant_after_bqsr/", mode: 'copy'
-
-    input:
-    set pair_id, bam_file from bam_after_bqsr
-    set pair_id, bam_file_index from bam_index_samtools_after_bqsr
-    file fasta_fai from fasta_fai_after_bqsr.collect()
-    file fasta from fasta_variantcalling_after_bqsr.collect()
-    file fasta_dict from fasta_dict_Variant_calling_after_bqsr.collect()
-
-    output:
-    set pair_id, "${pair_id}_after_bqsr.g.vcf.gz" into gvcf_after_bqsr
-
-    script:
-    """
-    gatk --java-options "-Xmx${task.memory.giga}g"  \
-    HaplotypeCaller \
-    -R $fasta \
-    -I $bam_file \
-    -O "./${pair_id}_after_bqsr.g.vcf.gz" \
-    -ERC GVCF
-    """
-  }
-
-  process Gvcf_to_vcf_after_bqsr {
-    label 'gatk'
-    publishDir "${params.outdir}/variant_after_bqsr/", mode: 'copy'
-
-    input:
-    file file_gvcf from gvcf_after_bqsr.collect()
-    file fasta_fai from fasta_fai_gvcftovcf_after_bqsr
-    file fasta from fasta_joingvcf_after_bqsr
-    file fasta_dict from fasta_dict_Gvcf_to_vcf_after_bqsr
-
-    output:
-    file "final_after_bqsr.vcf.gz" into vcf_after_bqsr
-
-    script:
-    """
-    ## make list of input variant files
-    ls *g.vcf.gz > myvcf.list
-
-    for input in \$(cat myvcf.list)
-    do
-      gatk --java-options "-Xmx${task.memory.giga}g"  IndexFeatureFile -I \$input
-    done 
-    
-    gatk --java-options "-Xmx${task.memory.giga}g"  CombineGVCFs \
-    -R $fasta \
-    --variant myvcf.list \
-    -O combined.g.vcf.gz
-
-    gatk --java-options "-Xmx${task.memory.giga}g"  GenotypeGVCFs \
-    -R $fasta \
-    -V combined.g.vcf.gz \
-    -O final_after_bqsr.vcf.gz
-    """
-  }
-
-
-  process Extract_SNPIndel_Filtration_after_bqsr {
-    label 'gatk'
-    tag "$file_vcf"
-    publishDir "${params.outdir}/variant_after_bqsr/", mode: 'copy'
-
-    input:
-    file file_vcf from vcf_after_bqsr
-    file fasta_fai from fasta_fai_extract_after_bqsr
-    file fasta from fasta_extract_after_bqsr
-    file fasta_dict from fasta_dict_extract_after_bqsr
-
-    output:
-    file "filtered_snps_after_bqsr.vcf" into vcf_snp_after_bqsr , vcf_snp_for_snpeff_after_bqsr
-    file "filtered_indels_after_bqsr.vcf" into vcf_indel_after_bqsr
-
-    script:
-    """
-    gatk --java-options "-Xmx${task.memory.giga}g" IndexFeatureFile \
-      -I $file_vcf
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-        -R $fasta \
-        -V $file_vcf \
-        --select-type-to-include SNP \
-        -O bqsr_snps.vcf
-
-    gatk --java-options "-Xmx${task.memory.giga}g" VariantFiltration \
-          -R $fasta \
-          -V bqsr_snps.vcf \
-          -O pre_filtered_snps_after_bqsr.vcf \
-          -filter-name "QD_filter" -filter "QD < 2.0" \
-          -filter-name "FS_filter" -filter "FS > 60.0" \
-          -filter-name "MQ_filter" -filter "MQ < 40.0" \
-          -filter-name "SOR_filter" -filter "SOR > 4.0" \
-          -filter-name "MQRankSum_filter" -filter "MQRankSum < -12.5" \
-          -filter-name "ReadPosRankSum_filter" -filter "ReadPosRankSum < -8.0"
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-      -R $fasta \
-      -V pre_filtered_snps_after_bqsr.vcf \
-      --exclude-filtered \
-      -O filtered_snps_after_bqsr.vcf
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-        -R $fasta \
-        -V $file_vcf \
-        --select-type-to-include INDEL \
-        -O bqsr_indels.vcf
-
-    gatk --java-options "-Xmx${task.memory.giga}g" VariantFiltration \
-          -R $fasta \
-          -V bqsr_indels.vcf \
-          -O pre_filtered_indels_after_bqsr.vcf \
-          -filter-name "QD_filter" -filter "QD < 2.0" \
-          -filter-name "FS_filter" -filter "FS > 200.0" \
-          -filter-name "SOR_filter" -filter "SOR > 10.0" 
-    
-    gatk --java-options "-Xmx${task.memory.giga}g" SelectVariants \
-      -R $fasta \
-      -V pre_filtered_indels_after_bqsr.vcf \
-      --exclude-filtered \
-      -O filtered_indels_after_bqsr.vcf 
-    """
-  }
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -930,14 +748,6 @@ if (!params.skipbqsr) {
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
-// Essayer les verions beta de GATK pour trouver les variants struct. 
-
-/// !!!!!!!!!!!!!!!! Attention a ne pas utiliser les channel de fichier bam filtré
-
-// A tester sur nombre de variant trouvé avec pindel et break dans les 2 cas filter / non filtrer
-
-// precier d'ou viennent les fichier bam (filter, ... ect )
 
 process Structural_Variant_calling_breakdancer {
   label 'breakdancer'
@@ -1276,7 +1086,7 @@ if (params.annotationgff) {
         -c $configfile \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENEID" "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
 }
