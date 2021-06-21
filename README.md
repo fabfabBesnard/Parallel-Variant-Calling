@@ -66,7 +66,7 @@ You can provide your own annotation file with `--annotationgff` or you can use s
 
 - `--vqsr_file` : You can provide a reference variant file (.vcf) in order to apply a variant recalibartion score. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/)
 
-- `--sampletable` You can provide a table of name for your sample in csv format. Example:
+- `--sampletable` In order to simplify results, you can provide a table of sample name for your reads in csv format. Example:
 ```
 V300042688_L2_AE06084935-608,Mutant1
 V300042688_L4_AE49584879-612,Mutant2

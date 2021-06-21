@@ -17,7 +17,6 @@ def helpMessage() {
       --annotation               Full path to file of annotation genome (.gff) 
       --scriptdir                Path to directory who contain script. For example /Pipeline_variant_RDP/script.nf'
     Optionnal arguments:
-      --genomeindex              Full path to directory of index (Optionnal)
       --vqsrfile                 Variant calibration step, give a refernce file in vcf with short indel and snp (default: false).
       --sampletable              Table in .csv who contain name of different sample (sep : ',')
       --vqsrrate                 Defaut 99.0
@@ -67,7 +66,6 @@ log.info nfcoreHeader()
 def summary = [:]
 summary['scriptdir']             = params.scriptdir ?: 'Not supplied'
 summary['reads']                 = params.reads ?: 'Not supplied'
-summary['genomeindex']           = params.genomeindex  ?: 'Not supplied'
 summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
 summary['Ploidy']                = params.ploidy
 summary['Config Profile']        = workflow.profile
@@ -115,39 +113,25 @@ if (params.genomefasta) {
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ;
             fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
-        if (!params.genomeindex){
-                  process index_fasta {
-                                      label "bwa"
-                                      tag "$fasta.simpleName"
-                                      publishDir "results/mapping/index/", mode: 'copy'
+            process index_fasta {
+              label "bwa"
+              tag "$fasta.simpleName"
+              publishDir "results/mapping/index/", mode: 'copy'
 
-                                      input:
-                                        file fasta  from fasta_file
+              input:
+                file fasta  from fasta_file
 
-                                      output:
-                                        file "${fasta.baseName}.*" into index_files 
-                                        file "*_bwa_report.txt" into index_files_report
+              output:
+                file "${fasta.baseName}.*" into index_files 
+                file "*_bwa_report.txt" into index_files_report
 
-                                      script:
-                                        """
-                                        bwa index -p ${fasta.baseName} ${fasta} \
-                                        &> ${fasta.baseName}_bwa_report.txt
-                                        """
+              script:
+                """
+                bwa index -p ${fasta.baseName} ${fasta} \
+                &> ${fasta.baseName}_bwa_report.txt
+                """
 
-                                      }
-        }
-}
-
-
-if (params.genomeindex) {
-        Channel
-            .fromPath( params.genomeindex )
-            .ifEmpty { error "Cannot find any file matching: ${params.genomeindex}" }
-            //.map { it -> [(it.baseName =~ /([^\.]*)/)[0][1], it]}
-            .toList()
-            .into { index_files  }
- 
-
+              }
 }
 
 if (params.annotationgff) {
@@ -156,20 +140,6 @@ if (params.annotationgff) {
             .ifEmpty { error "Cannot find any file matching: ${params.annotation}" }
             .set{ annotation }
 }
-
-/*
- GET EXTENSION FASTA FILE TO TEST IT
- TRY .BAM OF .VCF IF READ ALLREZADY MAPPED
-
- fasta_file.into{ fasta_file_test_zip;
-                  fasta_file_zip }
-
- ext=fasta_file_test_zip.getVal().getExtension()
-
-
-  if(ext=="gz" || ext=="bz" || ext=="zip"){
-
-*/
 
 process Fastqc {
     label 'fastqc'
