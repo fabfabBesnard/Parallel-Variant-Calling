@@ -113,7 +113,7 @@ if (params.genomefasta) {
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ;
             fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
-            process index_fasta {
+            process Create_genome_bwa_index {
               label "bwa"
               tag "$fasta.simpleName"
               publishDir "results/mapping/index/", mode: 'copy'
@@ -177,7 +177,6 @@ if (params.sampletable) {
   process Mapping_reads_and_add_sample_name {
     label 'bwa'
     tag "$sample_id"
-    publishDir "${params.outdir}/mapping/", mode: 'copy'
 
     input:
     set pair_id,sample_id, file(reads) from fastqsamplename
@@ -200,7 +199,6 @@ else{
   process Mapping_reads {
     label 'bwa'
     tag "$pair_id"
-    publishDir "${params.outdir}/mapping/", mode: 'copy'
 
     input:
     set pair_id,file(reads) from fastqgz
@@ -231,7 +229,6 @@ else{
 process Sam_to_bam {
     label 'samtools'
     tag "$pair_id"
-    publishDir "${params.outdir}/mapping/", mode: 'copy'
 
     input:
     set pair_id, "${pair_id}.sam" from sam_files
@@ -1091,7 +1088,7 @@ if (params.annotationname) {
 
 process Final_process {
       tag "$pair_id"
-      publishDir "${params.outdir}/final", mode: 'copy'
+      publishDir "${params.outdir}/Final", mode: 'copy'
 
       input:
       file fi from tabsnpeff.collect()
@@ -1116,6 +1113,26 @@ process Final_process {
       """
 }
 
+process Generate_custom_summary {
+
+      input:
+
+      output:
+      file "*_mqc*" into to_multiqc
+
+      script:
+      """
+      #! python3
+      import plotly.express as px
+      import sys
+      import os
+
+      fig = px.scatter(x=range(10), y=range(10))
+      fig.write_html("test_mqc.html")
+      """
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1135,6 +1152,7 @@ process Final_process {
      file report_mapping from mapping_repport_files.collect()
      file report_picard from picardmetric_files.collect()
      file report_picard from gatkmetric_files.collect()
+     file report_custom from to_multiqc.collect()
 
      output:
      file "*multiqc_*" into multiqc_report

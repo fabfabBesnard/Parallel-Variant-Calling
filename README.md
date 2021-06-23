@@ -18,6 +18,15 @@ This pipeline has 3 steps:
 
 <img src="img/Tech-Flowchart.jpg" alt="Flowchart" width="600"/>
 
+## requirements
+
+## install
+
+You need to have :
+- Nextflow
+- Plotly (python3 -m pip install plotly --user)
+
+
 ## General Usage
 
 A workflow is run in the following way:
@@ -53,7 +62,7 @@ tmux attach
 
 - `--genomefasta` : Full path to file of reference genome (.fa or .fasta or .gz)
 
-- `--reads` : Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. Example : Sequence*_{1,2}.fastq
+- `--reads` : Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. Example : Sequence*_{1,2}.fastq ( `{1,2}` for paired reads )
 
 You can provide your own annotation file with `--annotationgff` or you can use snpeff database. Only for Physcomitrella patens or Arabidopsis thaliana ! In this case use `--annotationname`
 
@@ -81,13 +90,21 @@ V300042688_L4_AE47136387-610,Mutant3
 
 - `--mindepth` : (Only for short indel and snp) Threeshold of deepth (number of reads) for a variant per sample. Default: 4
 
+- `-resume` : Add resume to command line and files from same analyse are retrieved from the cache.
+
 
 ## Example 
 
 Command line : 
 
 ```
-./nextflow run script/VariantCaller.nf -c script/VariantCaller.config --reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" --genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa --vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz-profile psmn --annotationname 'Arabidopsis_thaliana' -resume --outdir My_analyse
+./nextflow run script/VariantCaller.nf -c script/VariantCaller.config 
+--reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" 
+--genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa 
+--vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz
+-profile psmn 
+--annotationname 'Arabidopsis_thaliana' 
+--outdir My_analyse
 ```
 
 ```
@@ -115,6 +132,3 @@ Command line :
 │   └── VariantCaller.nf
 └── nextflow
 ```
-
-
-python3 -m pip install plotly chart-studio --user
