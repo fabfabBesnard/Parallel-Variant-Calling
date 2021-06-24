@@ -1,6 +1,6 @@
 # Variant calling and prediction of functional impact
 
-## Intro
+## Introduction
 
 The aim of this pipeline is to search genetic variants within different mutated plants in order to highlight variants with a phenotypic impact and shed light on the function of certain genes. Thanks to NGS data and by comparing the variants present in the plants, we are able to identify and compare the variants that have a phenotypic impact.
 
