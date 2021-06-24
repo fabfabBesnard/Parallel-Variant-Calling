@@ -1,10 +1,20 @@
-# Variant calling and prediction of functional impact
+# Parallel genomic variant calling and prediction of functional impacts
+
+Ease your forward genetics by listing all mutations in several samples at a time !
 
 ## Introduction
 
-The aim of this pipeline is to search genetic variants within different mutated plants in order to highlight variants with a phenotypic impact and shed light on the function of certain genes. Thanks to NGS data and by comparing the variants present in the plants, we are able to identify and compare the variants that have a phenotypic impact.
+This pipeline is designed to automatically provide the most exhaustive and accurate possible list of genes affected by genomic variations (e.g. natural polymorphisms, mutations) in a sample's DNA, using Illumina paired-end sequencing data. 
 
-For this project, I choose Nextflow, because this pipeline framework has a lot of advantage and it's very easy to install ( [How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) ).
+The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predict functional impact(s) of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
+
+The two main strengths of the pipeline are:
+- **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a starting strain and several derived mutant strains, all inherited mutations from the starting strain will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
+- **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, copy number variations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
+
+For this project, I choose Nextflow, because this pipeline framework has a lot of advantage and it's very easy to install 
+
+In theory, it can be used on every organisms for which a reference genome and annotation files are available (flexible input data provided by the user)
 
 This pipeline has 3 steps:
 
@@ -23,7 +33,7 @@ This pipeline has 3 steps:
 ## install
 
 You need to have :
-- Nextflow
+- Nextflow ( [How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) ).
 - Plotly (python3 -m pip install plotly --user)
 
 plotly-orca
