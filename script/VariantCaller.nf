@@ -110,7 +110,7 @@ if (params.genomefasta) {
             fasta_variantcalling ; fasta_joingvcf; 
             fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
             fasta_BaseRecalibrator ; 
-            fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ;
+            fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ; fasta_Snpeff_variant_effect2
             fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
             process Create_genome_bwa_index {
@@ -136,7 +136,7 @@ if (params.genomefasta) {
 
 if (params.annotationgff) {
         Channel
-            .fromPath( params.annotation )
+            .fromPath( params.annotationgff )
             .ifEmpty { error "Cannot find any file matching: ${params.annotationgff}" }
             .set{ annotation }
 }
@@ -998,11 +998,33 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
+if (params.annotationname) {
+    //http://pcingola.github.io/SnpEff/ss_extractfields/
+    process Snpeff_variant_effect {
+        label 'snpeff'
+        tag "$file_vcf"
+        publishDir "${params.outdir}/snpeff/$file_vcf", mode: 'copy'
 
-if (params.annotationgff) {
-    
-    //A modifier car actuellement le docker contient deja la base de données pour Physcomitrella_patens
+        input:
+        file fa from fasta_Snpeff_variant_effect2.collect()
+        file file_vcf from good_variant.flatten().concat(vcfmetasv.flatten())
 
+        output:
+        file "snpeff_${file_vcf}" into anno
+        file "snpEff_summary.html" into summary
+        file "snpEff_genes.txt" into snptxt
+        file "tab_snpeff_${file_vcf}" into tabsnpeff
+
+        script:
+        """
+        snpeff $params.annotationname \
+        -v $file_vcf > snpeff_${file_vcf}
+
+        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        """
+      }
+}
+else{
     process Snpeff_build_database {
         label 'snpeff'
         tag "$gff"
@@ -1060,32 +1082,7 @@ if (params.annotationgff) {
 }
 
 
-if (params.annotationname) {
-    //http://pcingola.github.io/SnpEff/ss_extractfields/
-    process Snpeff_variant_effect {
-        label 'snpeff'
-        tag "$file_vcf"
-        publishDir "${params.outdir}/snpeff/$file_vcf", mode: 'copy'
 
-        input:
-        file fa from fasta_Snpeff_variant_effect.collect()
-        file file_vcf from good_variant.flatten().concat(vcfmetasv.flatten())
-
-        output:
-        file "snpeff_${file_vcf}" into anno
-        file "snpEff_summary.html" into summary
-        file "snpEff_genes.txt" into snptxt
-        file "tab_snpeff_${file_vcf}" into tabsnpeff
-
-        script:
-        """
-        snpeff $params.annotationname \
-        -v $file_vcf > snpeff_${file_vcf}
-
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
-        """
-      }
-}
 
 process Final_process {
       tag "$pair_id"
