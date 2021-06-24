@@ -26,7 +26,7 @@ You need to have :
 - Nextflow
 - Plotly (python3 -m pip install plotly --user)
 
-
+plotly-orca
 ## General Usage
 
 A workflow is run in the following way:
@@ -101,7 +101,7 @@ Command line :
 ./nextflow run script/VariantCaller.nf -c script/VariantCaller.config 
 --reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" 
 --genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa 
---vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz
+--vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz 
 -profile psmn 
 --annotationname 'Arabidopsis_thaliana' 
 --outdir My_analyse

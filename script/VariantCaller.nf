@@ -74,7 +74,7 @@ summary['annotationname']        = params.annotationname
 summary['sampletable']           = params.sampletable  ?: 'Not supplied'
 summary['minglobalqual']         = params.minglobalqual
 summary['mindepth']              = params.mindepth
-summary['VQSR']                  = params.vqsrfile
+summary['VQSR']                  = params.vqsrfile  ?: 'Not supplied'
 summary['Output']                = params.outdir
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
 log.info "-\033[2m-------------------------------------------------------------------------\033[0m-"
@@ -137,7 +137,7 @@ if (params.genomefasta) {
 if (params.annotationgff) {
         Channel
             .fromPath( params.annotation )
-            .ifEmpty { error "Cannot find any file matching: ${params.annotation}" }
+            .ifEmpty { error "Cannot find any file matching: ${params.annotationgff}" }
             .set{ annotation }
 }
 
@@ -229,6 +229,7 @@ else{
 process Sam_to_bam {
     label 'samtools'
     tag "$pair_id"
+    publishDir "${params.outdir}/mapping", mode: 'copy'
 
     input:
     set pair_id, "${pair_id}.sam" from sam_files
@@ -1088,7 +1089,7 @@ if (params.annotationname) {
 
 process Final_process {
       tag "$pair_id"
-      publishDir "${params.outdir}/Final", mode: 'copy'
+      publishDir "${params.outdir}/final", mode: 'copy'
 
       input:
       file fi from tabsnpeff.collect()
@@ -1116,6 +1117,7 @@ process Final_process {
 process Generate_custom_summary {
 
       input:
+      file ff from final_files
 
       output:
       file "*_mqc*" into to_multiqc
@@ -1124,8 +1126,11 @@ process Generate_custom_summary {
       """
       #! python3
       import plotly.express as px
+      import pandas as pd
       import sys
       import os
+
+      df = pd.read_csv(ff, sep='\t')
 
       fig = px.scatter(x=range(10), y=range(10))
       fig.write_html("test_mqc.html")
@@ -1159,7 +1164,7 @@ process Generate_custom_summary {
 
      script:
      """
-     multiqc -f . \\
+     multiqc .
      
      """
   }
