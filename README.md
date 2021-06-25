@@ -14,8 +14,8 @@ Improve and speed-up your forward genetics by listing all mutations in several s
 
 This pipeline is designed to automatically provide the most exhaustive and accurate possible list of genes affected by genomic variations (e.g. natural polymorphisms, mutations) *specific* to a sample's DNA, using Illumina paired-end sequencing data. 
 
-The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predict functional impact(s) of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
-http://www.ens-lyon.fr/PSMN/doku.php
+The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predicts functional impact(s) on the gene of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
+
 The two main strengths of this pipeline are:
 - **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a starting strain and several derived mutant strains, all inherited mutations from the starting strain will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
 - **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, copy number variations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
@@ -99,67 +99,105 @@ Copy and paste the default config file provided in `Pipeline_variant_RDP/script/
 >  Only two profiles are defined in the second part of the config file. The pipeline has been optimized to run in our lab cluster. Running in an other environment may require to create a new profile. Expertise in nextflow is preferable to edit the profile configurations.
 
 The configuration file must be given to the command line with the -c option:
-- `-c` : Path to configuration file. This file contains all defaut values and configurations for run at our lab cluster ([PSMN](http://www.ens-lyon.fr/PSMN/doku.php)). 
+- `-c` : + path to configuration file. The provided config file contains all default values and configurations for runs at our lab cluster ([PSMN](http://www.ens-lyon.fr/PSMN/doku.php)). 
 
 Most of the main paramters can be either directly configured at the beginning of this config file. Alternatively, they can be specified in the command line as explained below.
 
 ### main parameters
-- `-profile` : the profile adapted to your computig environment, deined in the config file (available: psmn or singularity)
+- `-profile` : + profile id (string). the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
 
-- `VariantCaller.nf`: the typical pipeline to be executed (only one available)
+- `VariantCaller.nf`: (nothing to add). The typical pipeline to be executed (only one available), located in scrpitdir
 
-- `--scriptdir` : Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
+- `--scriptdir` : + path/to/directory. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
 
-- `--genomefasta` : Full path to file of reference genome (.fa or .fasta or .gz)
+- `--genomefasta` : + path/to/file. Full path to the file of the reference genome (.fa or .fasta or .gz)
 
-- `--reads` : Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. 
-Example : Sequence\* _{1,2}.fastq ( `{1,2}` for paired reads ). 
+- `--reads` : + path/to/files. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
+Example: "Sequence* _{1,2}.fastq" ( `{1,2}` for paired reads ). (Use quotes "" to ensure the correct interpretation of pattern)
 
-Symbolic links are accepted.
+- `--annotationgff` : + path/to/file. Full path to file of annotation genome (.gff format)
 
-Provide an annotation file at gff format with `--annotationgff`. For *Physcomitrium patens* and *Arabidopsis thaliana* only, you do not need to provide an annotation file as the data are incorporated in our snpEff docker image. Use the option `--annotationname` instead.
-
-- `--annotationgff` : Full path to file of annotation genome (.gff)
-
-- `--annotationname` : Name of the organism  (either 'Physcomitrella_patens' or 'Arabidopsis_thaliana')
+> Important note :
+>
+> For *Physcomitrium patens* and *Arabidopsis thaliana* only, you do not need to provide an annotation file as the data are incorporated in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff). Use the option `--annotationname` instead followed by the organism's name recognized by snpEff:
+> 
+> `--annotationname` : + name (string). Name of the organism  (either 'Physcomitrella_patens' or 'Arabidopsis_thaliana')
 
 
 ### optional parameters:
 
-- `--vqsr_file` : You can provide a reference variant file (.vcf) in order to apply a variant recalibartion score. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/)
+- `--vqsr_file` : + path/to/file. You can provide a reference variant file (.vcf) in order to apply a variant recalibration score with [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360035531612-Variant-Quality-Score-Recalibration-VQSR-). Note that this file must contain a lot of highly validated trusty variants to ensure a good performance of the classification algorithms. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/).
 
-- `--sampletable` In order to simplify result file naming, you can provide a table of correspondance between your regular sample names and the (often ) for your reads in csv format. Example:
+- `--sampletable`: + path/to/file. In order to simplify result file naming, you can provide a table of correspondance between your regular sample names and the (often complicated) names of corresponding read (fastq) files in csv format. Example:
 ```
 V300042688_L2_AE06084935-608,Mutant1
 V300042688_L4_AE49584879-612,Mutant2
 V300042688_L4_AE47136387-610,Mutant3
 ```
 
-- `--outdir` : Name of directory generate. Default: 'results'
+- `--outdir` : + path/to/destination/directory. Name of the main result directory generated by the analysis. Default: './results'
 
-- `--ploidy` : Number of chromosome copy. Default: 1 (1 or 2)
+- `--ploidy` : + numeric. Number of chromosome copy. Default: 1 (1 or 2)
 
-- `--minglobalqual` : (Only for short indel and snp) Threeshold of global quality per variant (for all sample). Default: 200
+- `--minglobalqual` : + numeric. (only for short indel and snp) Minimal cutoff threshold of global quality per variant (for all sample). Default: 200
 
-- `--mindepth` : (Only for short indel and snp) Threeshold of deepth (number of reads) for a variant per sample. Default: 4
+- `--mindepth` : + numeric. (only for short indel and snp) Minimal cutoff threshold of depth (number of reads) for a variant per sample. Default: 4
 
-- `-resume` : Add resume to command line and files from same analyse are retrieved from the cache.
+- `-resume` : (nothing to add). With this flag, previously generated files from other analysis that are strictly identical to this new worflow will be retrieved from the cache, save computation time and ressource !
+
+- `with-report`: +path/to/destination. Output an html execution report of the workflow (https://www.nextflow.io/docs/latest/tracing.html#execution-report)
 
 
 ## Example 
 
-Command line : 
+**Command line** : 
 
 ```
-./nextflow run script/VariantCaller.nf -c script/VariantCaller.config 
---reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" 
---genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa 
---vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz 
--profile psmn 
---annotationname 'Arabidopsis_thaliana' 
+./nextflow run script/VariantCaller.nf -c script/VariantCaller.config -profile psmn \
+--reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" \
+--genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa \
+--vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz \
+--annotationname 'Arabidopsis_thaliana' \
 --outdir My_analyse
 ```
+with this command line, the beginning of the configuration file specifying the main parameters should look like:
 
+**configuration file:**
+```
+// Configuration file 
+
+params {
+  // Path to directory who contain script. For example /Pipeline_variant_RDP/script.nf'
+  scriptdir = 'script' 
+
+  // Full path to file of reference genome (.fa or .fasta or .gz)
+  genomefasta = false //given in the command line
+
+  //Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. Example : Sequence*_{1,2}.fastq
+  reads = false //given in the command line
+  
+  //You can provide your own annotation file with `--annotationgff` or you can use snpeff database. 
+  //Only for Physcomitrella patens or Arabidopsis thaliana ! In this case use `--annotationname`
+  annotationgff = false // Full path to file of annotation genome (.gff)
+  annotationname = false // [ 'Physcomitrella_patens' , 'Arabidopsis_thaliana', or false ]
+
+  //Number of chromosome copy. Default: 1 (1 or 2)
+  ploidy = 2 // 1 or 2, set to 2 for Arabidopsis thaliana here
+
+  //You can provide a reference of good variant file (.vcf) in order to apply a variant recalibartion score. 
+  //For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/)
+  vqsrfile = false // given in command line
+  vqsrrate = 99.0
+
+  sampletable = false
+  outdir = 'results' //overwritten by command line argument
+  minglobalqual = 200 // per cohort
+  mindepth = 4 // per sample
+
+  help = false
+}
+```
+**Corresponding organization of input files, scripts, and nextflow executable**:
 ```
 .
 ├── Mydata
