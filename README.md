@@ -1,46 +1,80 @@
-# Variant calling and prediction of functional impact
+# Parallel genomic variant calling and prediction of functional impacts
+
+Improve and speed-up your forward genetics by listing all mutations in several samples at a time !
+
+### Content
+  1. [Introduction](##Introduction)
+  2. [Pipeline overview](##Pipeline_overview)
+  3. [Requirements](##Requirements)
+  4. [General Usage](##General_Usage)
+  5. [Input files and parameters](##Input_files_and_parameters)
+  6. [Example](##Example)
 
 ## Introduction
 
-The aim of this pipeline is to search genetic variants within different mutated plants in order to highlight variants with a phenotypic impact and shed light on the function of certain genes. Thanks to NGS data and by comparing the variants present in the plants, we are able to identify and compare the variants that have a phenotypic impact.
+This pipeline is designed to automatically provide the most exhaustive and accurate possible list of genes affected by genomic variations (e.g. natural polymorphisms, mutations) *specific* to a sample's DNA, using Illumina paired-end sequencing data. 
 
-For this project, I choose Nextflow, because this pipeline framework has a lot of advantage and it's very easy to install ( [How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) ).
+The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predicts functional impact(s) on the gene of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
 
-This pipeline has 3 steps:
+The two main strengths of this pipeline are:
+- **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a starting strain and several derived mutant strains, all inherited mutations from the starting strain will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
+- **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, copy number variations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
 
-- Mapping and processing reads : Mapping reads from differents mutated sample against reference genome with bwa mem. After that, sam file are filtering and annotate with samtools and picardtools.
+The pipeline is implemented in [Nextflow](https://www.nextflow.io/): it's very easy to install and allows to monitor the completion of all processes of the pipeline, can be deployed in clusters/clouds for parallel computing, it ensures reproducible analysis (simple configuration, supports Docker technology, keeps track of command lines and parameters), promotes efficient re-run and debugs, generates reports.
 
-- Variant Calling: A variant calling of short variant, snp and short indel, with [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller). And a structural variant calling, with pindel, Breakdancer, CNVnator, Lumpy group with [metaSV](https://github.com/bioinform/metasv).
+In theory, it can be used on every organisms for which a reference genome and annotation files are available (flexible input data provided by the user).
+Organisms in which the pipeline has been tested: *Arabidopsis thaliana*, *Physcomitrium patens*.
+
+## Pipeline overview (technical description)
+This pipeline has 3 major parts:
+
+- Mapping and processing reads : Mapping reads from different mutated samples against reference genome with bwa mem. After that, sam file are filtering and annotate with samtools and picardtools.
+
+- Variant Calling: A variant calling of short variants, snp and short indels, with [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller). And a structural variant calling, with pindel, Breakdancer, CNVnator, Lumpy combined with [metaSV](https://github.com/bioinform/metasv). If several samples are provided together, only variants unique to each strain will be selected, increasing specificity of the genomic variation profiling.
 
 
-- Effet prediction: A prediction of variant effect with [snpeff](http://pcingola.github.io/SnpEff/).
+- Effet prediction: A prediction of variant effects with [snpeff](http://pcingola.github.io/SnpEff/).
 
 
 <img src="img/Tech-Flowchart.jpg" alt="Flowchart" width="600"/>
 
-## requirements
+## Requirements
 
-## install
+### Software
+You will need to install first:
+- Nextflow ([How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) in three little steps ! ).
 
-You need to have :
-- Nextflow
+> note
+> 
+> As explained in the link, we recommand to place the nextflow binary executable file at a location accessible to your $PATH. Alternatively, you can permanently edit your $PATH. For example, in a bash shell, execute: `echo 'export PATH=$PATH:/path/to/nextflow'  >> ~/.bash_profile` (in a sh and ksh shell, `echo 'export PATH=$PATH:/path/to/nextflow' >> ~/.profile`)
+
 - Plotly (python3 -m pip install plotly --user)
 
-plotly-orca
+- just git clone or copy this repository (not install or compilation required !)
+
+### input data
+The sequencing data are typically **Illumina paired-end** sequencing fastq files generated from the genomic DNA of a unique strain.
+Retained genomic variations are only **homozygous positions**. Both haploid and diploid organisms can be studied.
+
+The sequence of the reference genome of the organism is required at the *fasta* format, annotation file is required at the *gff* format.
+
 ## General Usage
 
-A workflow is run in the following way:
+So far, we have implemented a single workflow called 'VariantCaller.nf'. This pipeline can be called using the following command:
 
 ```
-nextflow run -profile [psmn,singularity] VariantCaller.nf
--c file.config
---reads "reads/*_{1,2}.fq.gz"
---genomefasta genome.fa
---annotation genome_annotation.gff
---outdir My_analyse
+nextflow run -profile [psmn,singularity] VariantCaller.nf \
+-c file.config \
+--reads "reads/*_{1,2}.fq.gz" \
+--genomefasta genome.fa \
+--annotation genome_annotation.gff \
+--outdir My_analyse \
 ```
-The best way to do this is to run nextflow using a screen or tmux terminal.
+> Note
+> 
+> if `nextflow` is not contained in a folder of your $PATH, modify the start of the above command line with `./path/to/nextflow`
 
+We recommand to run nextflow using a *screen* or *tmux* terminal to avoid killing the workflow if the terminal closes by accident.
 
 Example with tmux :
 ```
@@ -48,65 +82,122 @@ Example with tmux :
 tmux
 # run nextflow
 nextflow run -c -profile
-# "Detach" terminal
-+ d
-# "Attach" terminal
+# "Detach" terminal (the terminal vanishes from the screen but do not stop, so the running process is not killed)
+ctrl+B (simultaneous keys) then type 'd'
+# "Attach" terminal (re-open the remote terminal session which is still active)
 tmux attach
 ```
 
-## Input files and parametres
+## Input files and parameters
 
-- `-c` : Path to configuration file. This file contain all defaut values and configuttion for psmn. You can also change value of option directyle in configuration file of in command line with the following options.
+### configuration file
+First define the config file of your analysis workflow.
+Copy and paste the default config file provided in `Pipeline_variant_RDP/script/VariantCaller.config` to your analysis folder.
 
-- `--scriptdir` : Path to directory who contain script. For example /Pipeline_variant_RDP/script.nf'
+> note
+> 
+>  Only two profiles are defined in the second part of the config file. The pipeline has been optimized to run in our lab cluster. Running in an other environment may require to create a new profile. Expertise in nextflow is preferable to edit the profile configurations.
 
-- `--genomefasta` : Full path to file of reference genome (.fa or .fasta or .gz)
+The configuration file must be given to the command line with the -c option:
+- `-c` : + path to configuration file. The provided config file contains all default values and configurations for runs at our lab cluster ([PSMN](http://www.ens-lyon.fr/PSMN/doku.php)). 
 
-- `--reads` : Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. Example : Sequence*_{1,2}.fastq ( `{1,2}` for paired reads )
+Most of the main paramters can be either directly configured at the beginning of this config file. Alternatively, they can be specified in the command line as explained below.
 
-You can provide your own annotation file with `--annotationgff` or you can use snpeff database. Only for Physcomitrella patens or Arabidopsis thaliana ! In this case use `--annotationname`
+### main parameters
+- `-profile` : + profile id (string). the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
 
-- `--annotationgff` : Full path to file of annotation genome (.gff)
+- `VariantCaller.nf`: (nothing to add). The typical pipeline to be executed (only one available), located in scrpitdir
 
-- `--annotationname` : Name of organism : 'Physcomitrella_patens' or 'Arabidopsis_thaliana'
+- `--scriptdir` : + path/to/directory. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
+
+- `--genomefasta` : + path/to/file. Full path to the file of the reference genome (.fa or .fasta or .gz)
+
+- `--reads` : + path/to/files. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
+Example: "Sequence* _{1,2}.fastq" ( `{1,2}` for paired reads ). (Use quotes "" to ensure the correct interpretation of pattern)
+
+- `--annotationgff` : + path/to/file. Full path to file of annotation genome (.gff format)
+
+> Important note :
+>
+> For *Physcomitrium patens* and *Arabidopsis thaliana* only, you do not need to provide an annotation file as the data are incorporated in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff). Use the option `--annotationname` instead followed by the organism's name recognized by snpEff:
+> 
+> `--annotationname` : + name (string). Name of the organism  (either 'Physcomitrella_patens' or 'Arabidopsis_thaliana')
 
 
-### Optional:
+### optional parameters:
 
-- `--vqsr_file` : You can provide a reference variant file (.vcf) in order to apply a variant recalibartion score. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/)
+- `--vqsr_file` : + path/to/file. You can provide a reference variant file (.vcf) in order to apply a variant recalibration score with [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360035531612-Variant-Quality-Score-Recalibration-VQSR-). Note that this file must contain a lot of highly validated trusty variants to ensure a good performance of the classification algorithms. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/).
 
-- `--sampletable` In order to simplify results, you can provide a table of sample name for your reads in csv format. Example:
+- `--sampletable`: + path/to/file. In order to simplify result file naming, you can provide a table of correspondance between your regular sample names and the (often complicated) names of corresponding read (fastq) files in csv format. Example:
 ```
 V300042688_L2_AE06084935-608,Mutant1
 V300042688_L4_AE49584879-612,Mutant2
 V300042688_L4_AE47136387-610,Mutant3
 ```
 
-- `--outdir` : Name of directory generate. Default: 'results'
+- `--outdir` : + path/to/destination/directory. Name of the main result directory generated by the analysis. Default: './results'
 
-- `--ploidy` : Number of chromosome copy. Default: 1 (1 or 2)
+- `--ploidy` : + numeric. Number of chromosome copy. Default: 1 (1 or 2)
 
-- `--minglobalqual` : (Only for short indel and snp) Threeshold of global quality per variant (for all sample). Default: 200
+- `--minglobalqual` : + numeric. (only for short indel and snp) Minimal cutoff threshold of global quality per variant (for all sample). Default: 200
 
-- `--mindepth` : (Only for short indel and snp) Threeshold of deepth (number of reads) for a variant per sample. Default: 4
+- `--mindepth` : + numeric. (only for short indel and snp) Minimal cutoff threshold of depth (number of reads) for a variant per sample. Default: 4
 
-- `-resume` : Add resume to command line and files from same analyse are retrieved from the cache.
+- `-resume` : (nothing to add). With this flag, previously generated files from other analysis that are strictly identical to this new worflow will be retrieved from the cache, save computation time and ressource !
+
+- `with-report`: +path/to/destination. Output an html execution report of the workflow (https://www.nextflow.io/docs/latest/tracing.html#execution-report)
 
 
 ## Example 
 
-Command line : 
+**Command line** : 
 
 ```
-./nextflow run script/VariantCaller.nf -c script/VariantCaller.config 
---reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" 
---genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa 
---vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz 
--profile psmn 
---annotationname 'Arabidopsis_thaliana' 
+./nextflow run script/VariantCaller.nf -c script/VariantCaller.config -profile psmn \
+--reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" \
+--genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa \
+--vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz \
+--annotationname 'Arabidopsis_thaliana' \
 --outdir My_analyse
 ```
+with this command line, the beginning of the configuration file specifying the main parameters should look like:
 
+**configuration file:**
+```
+// Configuration file 
+
+params {
+  // Path to directory who contain script. For example /Pipeline_variant_RDP/script.nf'
+  scriptdir = 'script' 
+
+  // Full path to file of reference genome (.fa or .fasta or .gz)
+  genomefasta = false //given in the command line
+
+  //Full path to directory and name of reads in fastq.gz. You can use a pattern to select several files. Example : Sequence*_{1,2}.fastq
+  reads = false //given in the command line
+  
+  //You can provide your own annotation file with `--annotationgff` or you can use snpeff database. 
+  //Only for Physcomitrella patens or Arabidopsis thaliana ! In this case use `--annotationname`
+  annotationgff = false // Full path to file of annotation genome (.gff)
+  annotationname = false // [ 'Physcomitrella_patens' , 'Arabidopsis_thaliana', or false ]
+
+  //Number of chromosome copy. Default: 1 (1 or 2)
+  ploidy = 2 // 1 or 2, set to 2 for Arabidopsis thaliana here
+
+  //You can provide a reference of good variant file (.vcf) in order to apply a variant recalibartion score. 
+  //For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/)
+  vqsrfile = false // given in command line
+  vqsrrate = 99.0
+
+  sampletable = false
+  outdir = 'results' //overwritten by command line argument
+  minglobalqual = 200 // per cohort
+  mindepth = 4 // per sample
+
+  help = false
+}
+```
+**Corresponding organization of input files, scripts, and nextflow executable**:
 ```
 .
 ├── Mydata
