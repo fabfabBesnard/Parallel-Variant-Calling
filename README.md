@@ -3,16 +3,16 @@
 Improve and speed-up your forward genetics by listing all mutations in several samples at a time !
 
 ### Content
-  1. [Introduction]()
-  2. [Pipeline overview]()
-  3. [Requirements]()
-  4. [General Usage]()
-  5. [Input files and parameters]()
-  6. [Example]
+  1. [Introduction](##Introduction)
+  2. [Pipeline overview](##Pipeline_overview)
+  3. [Requirements](##Requirements)
+  4. [General Usage](##General_Usage)
+  5. [Input files and parameters](##Input_files_and_parameters)
+  6. [Example](##Example)
 
 ## Introduction
 
-This pipeline is designed to automatically provide the most exhaustive and accurate possible list of genes affected by genomic variations (e.g. natural polymorphisms, mutations) in a sample's DNA, using Illumina paired-end sequencing data. 
+This pipeline is designed to automatically provide the most exhaustive and accurate possible list of genes affected by genomic variations (e.g. natural polymorphisms, mutations) *specific* to a sample's DNA, using Illumina paired-end sequencing data. 
 
 The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predict functional impact(s) of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
 http://www.ens-lyon.fr/PSMN/doku.php
@@ -26,7 +26,7 @@ In theory, it can be used on every organisms for which a reference genome and an
 Organisms in which the pipeline has been tested: *Arabidopsis thaliana*, *Physcomitrium patens*.
 
 ## Pipeline overview (technical description)
-This pipeline has 3 steps:
+This pipeline has 3 major parts:
 
 - Mapping and processing reads : Mapping reads from different mutated samples against reference genome with bwa mem. After that, sam file are filtering and annotate with samtools and picardtools.
 
@@ -38,7 +38,7 @@ This pipeline has 3 steps:
 
 <img src="img/Tech-Flowchart.jpg" alt="Flowchart" width="600"/>
 
-## requirements
+## Requirements
 
 ### Software
 You will need to install first:
@@ -60,16 +60,20 @@ The sequence of the reference genome of the organism is required at the *fasta* 
 
 ## General Usage
 
-We have implemented a single workflow called 'VariantCaller.nf'. This pipeline can be called using the following command:
+So far, we have implemented a single workflow called 'VariantCaller.nf'. This pipeline can be called using the following command:
 
 ```
-nextflow run -profile [psmn,singularity] VariantCaller.nf
--c file.config
---reads "reads/*_{1,2}.fq.gz"
---genomefasta genome.fa
---annotation genome_annotation.gff
---outdir My_analyse
+nextflow run -profile [psmn,singularity] VariantCaller.nf \
+-c file.config \
+--reads "reads/*_{1,2}.fq.gz" \
+--genomefasta genome.fa \
+--annotation genome_annotation.gff \
+--outdir My_analyse \
 ```
+> Note
+> 
+> if `nextflow` is not contained in a folder of your $PATH, modify the start of the above command line with `./path/to/nextflow`
+
 We recommand to run nextflow using a *screen* or *tmux* terminal to avoid killing the workflow if the terminal closes by accident.
 
 Example with tmux :
