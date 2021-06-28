@@ -474,7 +474,7 @@ process Extract_SNP_and_filtering {
   file fasta_dict from fasta_dict_extract_Extract_SNP_VQSR
 
   output:
-  file "filtered_snps.vcf" into vcf_snp , snp_files, bqsr_vcf_snp
+  file "filtered_snps.vcf" into vcf_snp , snp_files, snp_for_stat
   file "raw_snps.vcf" into rawsnp
 
   script:
@@ -519,7 +519,7 @@ process Extract_INDEL_and_filtering {
   file fasta_dict from fasta_dict_Extract_INDEL_VQSR
 
   output:
-  file "filtered_indels.vcf" into indel , indel_files , bqsr_vcf_indel , testgatkmetasv
+  file "filtered_indels.vcf" into indel , indel_files , indel_for_stat , testgatkmetasv
   file "raw_indels.vcf" into rawindel
 
   script:
@@ -867,7 +867,7 @@ process Group_Structural_Variant_with_Metasv{
 
         output:
         //set pair_id, "${pair_id}_SV.vcf" into metasvout
-        file "${pair_id}_SV.vcf" into vcfmetasv_withnonspecific
+        file "${pair_id}_SV.vcf" into vcfmetasv_withnonspecific , sv_vcf_forstat
         file "raw_${pair_id}_SV.vcf" into raw_metasv
         val pair_id into id
 
@@ -1082,8 +1082,6 @@ else{
 }
 
 
-
-
 process Final_process {
       tag "$pair_id"
       publishDir "${params.outdir}/final", mode: 'copy'
@@ -1114,24 +1112,93 @@ process Final_process {
 process Generate_custom_summary {
 
       input:
-      file ff from final_files
+      file snp from snp_for_stat
+      file indel from indel_for_stat
+      file ff from final_files.collect()
+      file sv from sv_vcf_forstat.collect()
 
       output:
       file "*_mqc*" into to_multiqc
 
       script:
       """
-      #! python3
-      import plotly.express as px
-      import pandas as pd
-      import sys
-      import os
+#! python3
+import plotly.express as px
+import pandas as pd
+import sys
+import os
+import glob
+import plotly.graph_objects as go
 
-      df = pd.read_csv(ff, sep='\t')
+# List all resuts files
+files = glob.glob("*.tsv")
 
-      fig = px.scatter(x=range(10), y=range(10))
-      fig.write_html("test_mqc.html")
-      """
+fimpact = open("Summary_variants_impact_mqc.txt","w")
+ftype = open("Summary_variants_type_mqc.txt","w")
+# This would print all the files and directories
+
+
+totalsnp = 0
+totalindel = 0
+totalSV = 0
+
+for i in open("$snp",'r').readlines():
+  if not i.startswith('#'):
+    totalsnp += 1
+
+for i in open("$indel",'r').readlines():
+  if not i.startswith('#'):
+    totalindel += 1
+
+values = []
+
+fimpact.write("Sample\\tHIGH\\tMODERATE\\tLOW\\tMODIFIER\\n")
+ftype.write("Sample\\tsnp\\tindel\\tstructural variant\\n")
+for file_temp in files:
+    print( file_temp)
+    df = pd.read_csv(file_temp, sep='\\t')
+
+    #for variant impact
+    df_resume = df.groupby('ANN[*].IMPACT').count()['DP']
+    high = df_resume['HIGH']
+    moderate = df_resume['MODERATE']
+    low = df_resume['LOW']
+    modifier = df_resume['MODIFIER']
+    fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
+
+    #for piechart
+    index = df.index
+    number_of_rows = len(index)
+    values.append(number_of_rows)
+
+    #for variant type info
+    snp = 0
+    indel = 0
+    sv = 0
+    for index, row in df.iterrows():
+      if row['ALT'].startswith('<'):
+        sv += 1
+      elif (len(row['REF']) ==	len(row['ALT'])) and (len(row['ALT']) == 1):
+        snp += 1
+      elif (len(row['REF']) != len(row['ALT'])):
+        if "," in row['ALT']:
+          snp += 1
+        else:
+          indel += 1
+    ftype.write( '{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],snp,indel,sv) )
+
+#add total number of variants found
+
+specific = sum(values)
+
+values.append(totalindel+totalsnp-specific)
+#for piechart
+labels = list(map(lambda x: x.strip('.tsv'), files))+ ['Herited']
+
+fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+fig.write_html("Specific_vs_herited_variants_mqc.html")
+"""
+
 }
 
 

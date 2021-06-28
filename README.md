@@ -18,7 +18,7 @@ The output is a user-friendly tsv table that can be parsed and filter with class
 
 The two main strengths of this pipeline are:
 - **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a starting strain and several derived mutant strains, all inherited mutations from the starting strain will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
-- **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, copy number variations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
+- **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
 
 The pipeline is implemented in [Nextflow](https://www.nextflow.io/): it's very easy to install and allows to monitor the completion of all processes of the pipeline, can be deployed in clusters/clouds for parallel computing, it ensures reproducible analysis (simple configuration, supports Docker technology, keeps track of command lines and parameters), promotes efficient re-run and debugs, generates reports.
 
@@ -52,7 +52,7 @@ You will need to install first:
 
 - just git clone or copy this repository (not install or compilation required !)
 
-### input data
+### Input data
 The sequencing data are typically **Illumina paired-end** sequencing fastq files generated from the genomic DNA of a unique strain.
 Retained genomic variations are only **homozygous positions**. Both haploid and diploid organisms can be studied.
 
@@ -90,7 +90,7 @@ tmux attach
 
 ## Input files and parameters
 
-### configuration file
+### Configuration file
 First define the config file of your analysis workflow.
 Copy and paste the default config file provided in `Pipeline_variant_RDP/script/VariantCaller.config` to your analysis folder.
 
@@ -103,7 +103,7 @@ The configuration file must be given to the command line with the -c option:
 
 Most of the main paramters can be either directly configured at the beginning of this config file. Alternatively, they can be specified in the command line as explained below.
 
-### main parameters
+### Main parameters
 - `-profile` : + profile id (string). the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
 
 - `VariantCaller.nf`: (nothing to add). The typical pipeline to be executed (only one available), located in scrpitdir
@@ -115,16 +115,18 @@ Most of the main paramters can be either directly configured at the beginning of
 - `--reads` : + path/to/files. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
 Example: "Sequence* _{1,2}.fastq" ( `{1,2}` for paired reads ). (Use quotes "" to ensure the correct interpretation of pattern)
 
-- `--annotationgff` : + path/to/file. Full path to file of annotation genome (.gff format)
-
 > Important note :
 >
-> For *Physcomitrium patens* and *Arabidopsis thaliana* only, you do not need to provide an annotation file as the data are incorporated in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff). Use the option `--annotationname` instead followed by the organism's name recognized by snpEff:
+> Some databaese are already included in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff) : _Arabidopsis thaliana_, _Physcomitrium patens_, _Caenorhabditis elegans_, _Caenorhabditis briggsae_, _Populus trichocarpa_, _Zea mays_, _Drosophila melanogaster_, _Saccharomyces cerevisiae_ and _Schizosaccharomyces_pombe_. For these species you do not need to provide an annotation file so use the option `--annotationname` instead followed by the organism's name recognized by snpEff:
 > 
-> `--annotationname` : + name (string). Name of the organism  (either 'Physcomitrella_patens' or 'Arabidopsis_thaliana')
+- `--annotationname` : + name (string). Name of the organism (with a underscore instead of space) either Arabidopsis_thaliana, Physcomitrium_patens, Caenorhabditis_elegans, Caenorhabditis_briggsae, Populus_trichocarpa, Saccharomyces_cerevisiae, Zea_mays, Drosophila_melanogaster, Schizosaccharomyces_pombe
+
+> If your model organism is not allready included, you can provide a annotation file. Warning ! It can be risky because annotation files can be not well formatted and not supported by the snpEff program.
+
+- `--annotationgff` : + path/to/file. Full path to file of annotation genome (.gff format)
 
 
-### optional parameters:
+### Optional parameters:
 
 - `--vqsr_file` : + path/to/file. You can provide a reference variant file (.vcf) in order to apply a variant recalibration score with [GATK](https://gatk.broadinstitute.org/hc/en-us/articles/360035531612-Variant-Quality-Score-Recalibration-VQSR-). Note that this file must contain a lot of highly validated trusty variants to ensure a good performance of the classification algorithms. For exemple [Arabidopsis_thaliana]( https://1001genomes.org/data/GMI-MPI/releases/v3.1/).
 
@@ -155,14 +157,14 @@ V300042688_L4_AE47136387-610,Mutant3
 ```
 ./nextflow run script/VariantCaller.nf -c script/VariantCaller.config -profile psmn \
 --reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" \
---genomefasta ../Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa \
---vqsrfile ../Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz \
+--genomefasta Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa \
+--vqsrfile Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz \
 --annotationname 'Arabidopsis_thaliana' \
 --outdir My_analyse
 ```
 with this command line, the beginning of the configuration file specifying the main parameters should look like:
 
-**configuration file:**
+**Configuration file:**
 ```
 // Configuration file 
 
