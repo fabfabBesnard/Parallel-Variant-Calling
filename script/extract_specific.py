@@ -31,7 +31,9 @@ def extractgoodvariant( ligne ):
         GT = i.split(":")[0]
         #Si la taille du variant est 1 -> polidy 1
         if len(GT) == 1 :
-            if GT not in dicoGT.keys():
+            if GT == '0':
+                continue
+            elif GT not in dicoGT.keys():
                 #Ajout d'une clef GT avec comme valeur une liste des rang du variant
                 dicoGT[ GT ] = [ samplerank ]
             else:
@@ -39,7 +41,9 @@ def extractgoodvariant( ligne ):
             samplerank+=1
         #Sinon diploide 
         else :
-            if GT not in dicoGT.keys():
+            if GT[0] == '0':
+                continue
+            elif GT not in dicoGT.keys():
                 #Creation d'une clef GT avec comme valeur une liste des rang du variant
                 dicoGT[ GT ]= [samplerank]
             else:
@@ -85,6 +89,10 @@ dp = sys.argv[3]
 vcfheader = ''
 dicovariant = {}
 
+
+number_removed_qual = 0
+number_removed_dp = 0 
+
 # on parcours le contenu du fichier ligne par ligne
 for ligneN in open(vcfname, 'r'):
     ligne = ligneN.strip('\n')
@@ -106,6 +114,7 @@ for ligneN in open(vcfname, 'r'):
     else :
         qualvariant = ligne.split('\t')[5]
         if float(qualvariant) < float(qualseuil):
+            number_removed_qual += 1
             #go to next line
             continue
         else :
@@ -115,6 +124,7 @@ for ligneN in open(vcfname, 'r'):
                     newline = create_new_variant_line( ligne , i)
                     dpsample = newline.split('\t')[-1].split(':')[2]
                     if int(dpsample) < int(dp):
+                        number_removed_dp += 1
                         continue
                     if samplelist[i] not in dicovariant.keys():
                         #Creation d'une clef avec comme valeur le rang du variant
@@ -133,3 +143,7 @@ for filename in dicovariant:
         else:
             fichier.write(i + '\n')
     fichier.close()
+
+fstat = open( "nb_removed",'w')
+fstat.write("number_removed_qual\tnumber_removed_dp\n")
+fstat.write(str(number_removed_qual)+"\t"+str(number_removed_dp))

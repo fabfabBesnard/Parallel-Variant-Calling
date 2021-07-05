@@ -66,6 +66,7 @@ log.info nfcoreHeader()
 def summary = [:]
 summary['scriptdir']             = params.scriptdir ?: 'Not supplied'
 summary['reads']                 = params.reads ?: 'Not supplied'
+summary['readsinbam']            = params.readsinbam ?: 'Not supplied'
 summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
 summary['Ploidy']                = params.ploidy
 summary['Config Profile']        = workflow.profile
@@ -87,20 +88,7 @@ log.info "-\033[2m--------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-
-
-if (params.reads) {
-        Channel
-            .fromFilePairs(params.reads, size:2)
-            .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
-            .set{ fastqgz }
-        Channel
-            .fromPath(params.reads)
-            .set{ fastqgz_fastqc}
-}
-
 if (params.genomefasta) {
-  // voir pour faire ne pas creer une channel mais juste une variable reulisable metadata = file("metadata.tsv")
         Channel
             .fromPath( params.genomefasta )
             .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
@@ -134,29 +122,32 @@ if (params.genomefasta) {
               }
 }
 
-if (params.annotationgff) {
+if (params.reads) {
         Channel
-            .fromPath( params.annotationgff )
-            .ifEmpty { error "Cannot find any file matching: ${params.annotationgff}" }
-            .set{ annotation }
-}
+            .fromFilePairs(params.reads, size:2)
+            .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
+            .set{ fastqgz }
+        Channel
+            .fromPath(params.reads)
+            .set{ fastqgz_fastqc}
 
 process Fastqc {
-    label 'fastqc'
-    tag "$read"
+label 'fastqc'
+tag "$read"
 
-    input:
-    file read from fastqgz_fastqc
+input:
+file read from fastqgz_fastqc
 
-    output:
-    file "*.{zip,html}" into fastq_repport_files
+output:
+file "*.{zip,html}" into fastq_repport_files
 
-    script:
-    """
-    fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
-             ${read}
-    """
-  }
+script:
+"""
+fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
+          ${read}
+"""
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,115 +165,115 @@ if (params.sampletable) {
         .join(fastqgz)
         .set{fastqsamplename}
 
-  process Mapping_reads_and_add_sample_name {
-    label 'bwa'
-    tag "$sample_id"
+      process Mapping_reads_and_add_sample_name {
+        label 'bwa'
+        tag "$sample_id"
 
-    input:
-    set pair_id,sample_id, file(reads) from fastqsamplename
-    file index from index_files.collect()
+        input:
+        set pair_id,sample_id, file(reads) from fastqsamplename
+        file index from index_files.collect()
 
-    output:
-    set sample_id, "${sample_id}.sam" into sam_files
-    set sample_id, "${sample_id}_bwa_report.txt" into mapping_repport_files
+        output:
+        set sample_id, "${sample_id}.sam" into sam_files
+        set sample_id, "${sample_id}_bwa_report.txt" into mapping_repport_files
 
-    script:
-    index_id = index[0].baseName
-    """
-    bwa mem -t ${task.cpus} \
-    -aM ${index_id} ${reads[0]} ${reads[1]} \
-    -o ${sample_id}.sam &> ${sample_id}_bwa_report.txt
-    """
-  }
-}
-else{
-  process Mapping_reads {
-    label 'bwa'
-    tag "$pair_id"
+        script:
+        index_id = index[0].baseName
+        """
+        bwa mem -t ${task.cpus} \
+        -aM ${index_id} ${reads[0]} ${reads[1]} \
+        -o ${sample_id}.sam &> ${sample_id}_bwa_report.txt
+        """
+      }
+    }
+    else{
+      process Mapping_reads {
+        label 'bwa'
+        tag "$pair_id"
 
-    input:
-    set pair_id,file(reads) from fastqgz
-    file index from index_files.collect()
+        input:
+        set pair_id,file(reads) from fastqgz
+        file index from index_files.collect()
 
-    output:
-    set pair_id, "${pair_id}.sam" into sam_files
-    set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
+        output:
+        set pair_id, "${pair_id}.sam" into sam_files
+        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
 
-    script:
-    index_id = index[0].baseName
-    """
-    bwa mem -t ${task.cpus} \
-    -aM ${index_id} ${reads[0]} ${reads[1]} \
-    -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
-    """
-  }
-}
+        script:
+        index_id = index[0].baseName
+        """
+        bwa mem -t ${task.cpus} \
+        -aM ${index_id} ${reads[0]} ${reads[1]} \
+        -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
+        """
+      }
+    }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                       STEP   : SAM to BAM                           -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
+    /* --                                                                     -- */
+    /* --                       STEP   : SAM to BAM                           -- */
+    /* --                                                                     -- */
+    ///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
 
-process Sam_to_bam {
-    label 'samtools'
-    tag "$pair_id"
-    publishDir "${params.outdir}/mapping", mode: 'copy'
+    process Sam_to_bam {
+        label 'samtools'
+        tag "$pair_id"
+        publishDir "${params.outdir}/mapping", mode: 'copy'
 
-    input:
-    set pair_id, "${pair_id}.sam" from sam_files
+        input:
+        set pair_id, "${pair_id}.sam" from sam_files
 
-    output:
-    set pair_id, "${pair_id}.bam" into bam_files
+        output:
+        set pair_id, "${pair_id}.bam" into bam_files
 
-    script:
-    """
-    samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
-    """
-  }
+        script:
+        """
+        samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
+        """
+      }
 
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* --                                                                     -- */
-/* --                       STEP   : READ GROUPS                          -- */
-/* --                                                                     -- */
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
+    /* --                                                                     -- */
+    /* --                       STEP   : READ GROUPS                          -- */
+    /* --                                                                     -- */
+    ///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
 
-//https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
+    //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
 
-process Add_ReadGroup_and_MarkDuplicates_bam {
-  label 'picardtools'
-  tag "$pair_id"
+    process Add_ReadGroup_and_MarkDuplicates_bam {
+      label 'picardtools'
+      tag "$pair_id"
 
-  input:
-  set pair_id, bam_file from bam_files
+      input:
+      set pair_id, bam_file from bam_files
 
-  output:
-  set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
-  set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
+      output:
+      set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
+      set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
 
-  script:
-  """
-  PicardCommandLine AddOrReplaceReadGroups \
-       I=${bam_file} \
-       O="${pair_id}_readGroup.bam" \
-       RGID=${pair_id} \
-       RGLB=lib1 \
-       RGPL=illumina \
-       RGPU=unit1 \
-       RGSM=${pair_id}
-  PicardCommandLine MarkDuplicates \
-      I="${pair_id}_readGroup.bam" \
-      O="${pair_id}_readGroup_MarkDuplicates.bam" \
-      M="${pair_id}_marked_dup_metrics.txt"
-  """
-}
+      script:
+      """
+      PicardCommandLine AddOrReplaceReadGroups \
+          I=${bam_file} \
+          O="${pair_id}.bam" \
+          RGID=${pair_id} \
+          RGLB=lib1 \
+          RGPL=illumina \
+          RGPU=unit1 \
+          RGSM=${pair_id}
+      PicardCommandLine MarkDuplicates \
+          I="${pair_id}.bam" \
+          O="${pair_id}_readGroup_MarkDuplicates.bam" \
+          M="${pair_id}_marked_dup_metrics.txt"
+      """
+    }
 
-///////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
 /* --                   STEP   : ufilter and Get basics statistics        -- */
@@ -299,22 +290,83 @@ process Filtering_and_Indexing_bam {
 
   output:
   set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
-  set pair_id, "${pair_id}_ufilter_flagstat.txt" into flagstat_files
+  set pair_id, "${pair_id}.txt" into flagstat_files
   set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools
   set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_cnvnator, non_filtered_bam_files_breakdancer , non_filtered_bam_files_metasv
+  file "Coverage_mqc.csv" into cov_multiqc
 
   script:
   """
   samtools view -hu -F4 ${bam_RD_MD} | samtools view -hu -F256 - | samtools view -hb -f3 - > ${pair_id}_ufilter.bam
-	samtools flagstat ${pair_id}_ufilter.bam > ${pair_id}_ufilter_flagstat.txt
+	samtools flagstat ${pair_id}_ufilter.bam > ${pair_id}.txt
   samtools index ${pair_id}_ufilter.bam ${pair_id}_ufilter.bam.bai
  
   #index pour bam avant filtration
   cp ${bam_RD_MD} ${pair_id}.bam
   samtools index ${pair_id}.bam ${pair_id}.bam.bai
 
+  #Coverage stat
+  echo "Sample, Coverage" > Coverage_mqc.csv
+  samtools depth ${pair_id}.bam  |  awk '{sum+=\$3} END { print "${pair_id},",sum/NR}' >> Coverage_mqc.csv
   """
 }
+}
+
+if (params.readsinbam) {
+          Channel
+            .fromFilePairs(params.readsinbam, size:1)
+            .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
+            .set{ bam_files_RG_MD }
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+/* --                                                                     -- */
+/* --                   STEP   : ufilter and Get basics statistics        -- */
+/* --                                                                     -- */
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+process Filtering_and_Indexing_bam_allready_process {
+  label 'samtools'
+  tag "$pair_id"
+
+  input:
+  set pair_id, bam_RD_MD from bam_files_RG_MD
+
+  output:
+  set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
+  set pair_id, "${pair_id}.txt" into flagstat_files
+  set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools
+  set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_cnvnator, non_filtered_bam_files_breakdancer , non_filtered_bam_files_metasv
+  file "Coverage_mqc.csv" into cov_multiqc
+
+  script:
+  """
+  samtools view -hu -F4 ${bam_RD_MD[0]} | samtools view -hu -F256 - | samtools view -hb -f3 - > ${pair_id}_ufilter.bam
+	samtools flagstat ${pair_id}_ufilter.bam > ${pair_id}.txt
+  samtools index ${pair_id}_ufilter.bam ${pair_id}_ufilter.bam.bai
+ 
+  #index pour bam avant filtration
+  cp ${bam_RD_MD[0]} ${pair_id}.bam
+  samtools index ${pair_id}.bam ${pair_id}.bam.bai
+
+  #Coverage stat
+  echo "Sample, Coverage" > Coverage_mqc.csv
+  samtools depth ${pair_id}.bam  |  awk '{sum+=\$3} END { print "${pair_id},",sum/NR}' >> Coverage_mqc.csv
+  """
+}
+}
+
+
+if (params.annotationgff) {
+        Channel
+            .fromPath( params.annotationgff )
+            .ifEmpty { error "Cannot find any file matching: ${params.annotationgff}" }
+            .set{ annotation }
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -673,11 +725,11 @@ if (params.vqsrfile) {
         val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
-        //val wt from params.WT 
         file vcf from indelVQSR.concat(snpVQSR)
 
         output:
         file "*.vcf" into good_variant
+        file "nb_removed" into removed
 
         script:
         """
@@ -696,11 +748,11 @@ else{
         val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
-        //val wt from params.WT 
         file vcf from snp_files.concat(indel_files)
 
         output:
         file "*.vcf" into good_variant
+        file "nb_removed" into removed
 
         script:
         """
@@ -785,6 +837,7 @@ process Structural_Variant_calling_pindel {
   """
 }
 
+//https://github.com/arq5x/lumpy-sv
 process Structural_Variant_calling_Lumpy {
   label 'lumpy'
   tag "${pair_id}"
@@ -1116,6 +1169,7 @@ process Generate_custom_summary {
       file indel from indel_for_stat
       file ff from final_files.collect()
       file sv from sv_vcf_forstat.collect()
+      file nb from removed
 
       output:
       file "*_mqc*" into to_multiqc
@@ -1133,8 +1187,8 @@ import plotly.graph_objects as go
 # List all resuts files
 files = glob.glob("*.tsv")
 
-fimpact = open("Summary_variants_impact_mqc.txt","w")
-ftype = open("Summary_variants_type_mqc.txt","w")
+fimpact = open("Summary_variant_impact_mqc.txt","w")
+ftype = open("Summary_variant_type_mqc.txt","w")
 # This would print all the files and directories
 
 
@@ -1167,15 +1221,21 @@ for file_temp in files:
     fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
 
     #for piechart
-    index = df.index
+    # keep only chrom and pos
+    dfpos = df[["CHROM", "POS"]]
+    dfposuniq = dfpos.drop_duplicates()
+
+    index = dfposuniq.index
     number_of_rows = len(index)
     values.append(number_of_rows)
 
     #for variant type info
+    dftype = df[["CHROM", "POS","REF", "ALT" ]]
+    dftypeuniq = dftype.drop_duplicates()
     snp = 0
     indel = 0
     sv = 0
-    for index, row in df.iterrows():
+    for index, row in dftypeuniq.iterrows():
       if row['ALT'].startswith('<'):
         sv += 1
       elif (len(row['REF']) ==	len(row['ALT'])) and (len(row['ALT']) == 1):
@@ -1189,14 +1249,28 @@ for file_temp in files:
 
 #add total number of variants found
 
-specific = sum(values)
 
-values.append(totalindel+totalsnp-specific)
 #for piechart
-labels = list(map(lambda x: x.strip('.tsv'), files))+ ['Herited']
+#value from process extract specific variant
+dfremoved = pd.read_csv("$nb", sep='\\t')
+Low_quality = dfremoved.at[0,'number_removed_qual']
+Low_depth = dfremoved.at[0,'number_removed_dp']
 
+specific = sum(values)
+herited = totalindel+totalsnp-specific-Low_quality-Low_depth
+
+values.append(herited)
+values.append(Low_quality)
+values.append(Low_depth)
+
+labels = list(map(lambda x: x.strip('.tsv'), files)) + ['Shared', 'Low_quality' ,'Low_depth']
+
+print( "total snp", totalsnp)
+print( "total indel", totalindel)
+print( values)
+print( labels)
 fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
-fig.write_html("Specific_vs_herited_variants_mqc.html")
+fig.write_html("Specific_vs_shared_variants_mqc.html")
 """
 
 }
@@ -1211,7 +1285,29 @@ fig.write_html("Specific_vs_herited_variants_mqc.html")
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
- process MultiQC {
+
+if (params.readsinbam) {
+ process MultiQC_withbamfile {
+     label "multiQC"
+     publishDir "${params.outdir}/multiQC", mode: 'copy'
+
+     input:
+     file report_flagstat from flagstat_files.collect()
+     //file report_gatk from gatkmetric_files.collect()
+     file report_custom from to_multiqc.collect()
+     file cov from cov_multiqc.collect()
+
+     output:
+     file "*multiqc_*" into multiqc_report
+
+     script:
+     """
+     multiqc .
+     """
+  }
+}
+else{
+  process MultiQC {
      label "multiQC"
      publishDir "${params.outdir}/multiQC", mode: 'copy'
 
@@ -1220,8 +1316,9 @@ fig.write_html("Specific_vs_herited_variants_mqc.html")
      file report_flagstat from flagstat_files.collect()
      file report_mapping from mapping_repport_files.collect()
      file report_picard from picardmetric_files.collect()
-     file report_picard from gatkmetric_files.collect()
+     //file report_gatk from gatkmetric_files.collect()
      file report_custom from to_multiqc.collect()
+     file cov from cov_multiqc.collect()
 
      output:
      file "*multiqc_*" into multiqc_report
@@ -1229,10 +1326,9 @@ fig.write_html("Specific_vs_herited_variants_mqc.html")
      script:
      """
      multiqc .
-     
      """
-  }
-
+}
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
