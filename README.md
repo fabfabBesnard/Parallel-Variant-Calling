@@ -3,12 +3,12 @@
 Improve and speed-up your forward genetics by listing all mutations in several samples at a time !
 
 ### Content
-  1. [Introduction](##Introduction)
-  2. [Pipeline overview](##Pipeline_overview)
-  3. [Requirements](##Requirements)
-  4. [General Usage](##General_Usage)
-  5. [Input files and parameters](##Input_files_and_parameters)
-  6. [Example](##Example)
+  1. [Introduction](https://github.com/Romumrn/Pipeline_variant_RDP#introduction)
+  2. [Pipeline overview](https://github.com/Romumrn/Pipeline_variant_RDP#pipeline-overview-technical-description)
+  3. [Requirements](https://github.com/Romumrn/Pipeline_variant_RDP#requirements)
+  4. [General Usage](https://github.com/Romumrn/Pipeline_variant_RDP#general-usage)
+  5. [Input files and parameters](https://github.com/Romumrn/Pipeline_variant_RDP#input-files-and-parameters)
+  6. [Example](https://github.com/Romumrn/Pipeline_variant_RDP#example)
 
 ## Introduction
 
@@ -60,7 +60,7 @@ The sequence of the reference genome of the organism is required at the *fasta* 
 
 ## General Usage
 
-So far, we have implemented a single workflow called 'VariantCaller.nf'. This pipeline can be called using the following command:
+So far, we have implemented a single workflow called `VariantCaller.nf`. This pipeline can be called using the following command:
 
 ```
 nextflow run -profile [psmn,singularity] VariantCaller.nf \
@@ -96,7 +96,7 @@ Copy and paste the default config file provided in `Pipeline_variant_RDP/script/
 
 > note
 > 
->  Only two profiles are defined in the second part of the config file. The pipeline has been optimized to run in our lab cluster. Running in an other environment may require to create a new profile. Expertise in nextflow is preferable to edit the profile configurations.
+>  Only two profiles are defined in the second part of the config file. The pipeline has been optimized to run in our lab computing cluster. Running in an other environment may require to create a new profile. Expertise in nextflow is preferable to edit the profile configurations.
 
 The configuration file must be given to the command line with the -c option:
 - `-c` : + path to configuration file. The provided config file contains all default values and configurations for runs at our lab cluster ([PSMN](http://www.ens-lyon.fr/PSMN/doku.php)). 
@@ -104,26 +104,26 @@ The configuration file must be given to the command line with the -c option:
 Most of the main paramters can be either directly configured at the beginning of this config file. Alternatively, they can be specified in the command line as explained below.
 
 ### Main parameters
-- `-profile` : + profile id (string). the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
+- `-profile` : + *profile id (string)*. the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
 
 - `VariantCaller.nf`: (nothing to add). The typical pipeline to be executed (only one available), located in scrpitdir
 
-- `--scriptdir` : + path/to/directory. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
+- `--scriptdir` : + *path/to/directory*. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
 
-- `--genomefasta` : + path/to/file. Full path to the file of the reference genome (.fa or .fasta or .gz)
+- `--genomefasta` : + *path/to/file*. Full path to the file of the reference genome (.fa or .fasta or .gz)
 
-- `--reads` : + path/to/files. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
+- `--reads` : + *path/to/files*. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
 Example: "Sequence* _{1,2}.fastq" ( `{1,2}` for paired reads ). (Use quotes "" to ensure the correct interpretation of pattern)
 
 > Important note :
 >
-> Some databaese are already included in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff) : _Arabidopsis thaliana_, _Physcomitrella_patens_, _Caenorhabditis elegans_, _Caenorhabditis briggsae_, _Populus trichocarpa_, _Zea mays_, _Drosophila melanogaster_, _Saccharomyces cerevisiae_ and _Schizosaccharomyces_pombe_. For these species you do not need to provide an annotation file so use the option `--annotationname` instead followed by the organism's name recognized by snpEff:
+> Some databases are already included in our [snpEff docker image](https://hub.docker.com/r/romudock/snpeff) : _Arabidopsis thaliana_, _Physcomitrella_patens_, _Caenorhabditis elegans_, _Caenorhabditis briggsae_, _Populus trichocarpa_, _Zea mays_, _Drosophila melanogaster_, _Saccharomyces cerevisiae_ and _Schizosaccharomyces_pombe_. For these species you do not need to provide an annotation file: instead, use the option `--annotationname` followed by the organism's name recognized by snpEff:
 > 
 - `--annotationname` : + name (string). Name of the organism (with a underscore instead of space) either Arabidopsis_thaliana, Physcomitrella_patens, Caenorhabditis_elegans, Caenorhabditis_briggsae, Populus_trichocarpa, Saccharomyces_cerevisiae, Zea_mays, Drosophila_melanogaster, Schizosaccharomyces_pombe
 
-> If your model organism is not allready included, you can provide a annotation file. Warning ! It can be risky because annotation files can be not well formatted and not supported by the snpEff program.
+> If your model organism is not already included, you can provide an annotation file. Warning ! It can be risky because annotation files can be not well formatted and not supported by the snpEff program.
 
-- `--annotationgff` : + path/to/file. Full path to file of annotation genome (.gff format)
+- `--annotationgff` : + *path/to/file*. Full path to file of annotation genome (.gff format)
 
 
 ### Optional parameters:
