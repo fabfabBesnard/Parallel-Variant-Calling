@@ -12,6 +12,9 @@
 
 
 import sys
+import numpy as np
+import pandas as pd
+import plotly.express as px
 
 def extractgoodvariant( ligne ):
     toadd = False
@@ -31,9 +34,7 @@ def extractgoodvariant( ligne ):
         GT = i.split(":")[0]
         #Si la taille du variant est 1 -> polidy 1
         if len(GT) == 1 :
-            if GT == '0':
-                continue
-            elif GT not in dicoGT.keys():
+            if GT not in dicoGT.keys():
                 #Ajout d'une clef GT avec comme valeur une liste des rang du variant
                 dicoGT[ GT ] = [ samplerank ]
             else:
@@ -41,9 +42,7 @@ def extractgoodvariant( ligne ):
             samplerank+=1
         #Sinon diploide 
         else :
-            if GT[0] == '0':
-                continue
-            elif GT not in dicoGT.keys():
+            if GT not in dicoGT.keys():
                 #Creation d'une clef GT avec comme valeur une liste des rang du variant
                 dicoGT[ GT ]= [samplerank]
             else:
@@ -54,18 +53,75 @@ def extractgoodvariant( ligne ):
         #if GT != GTSS:
         if len( GT )!= 1:
             #if homozyogous 
-            if (GT[0] == GT[2]) and ('.' not in GT) :
+            if (GT[0] == GT[2]) and ('.' not in GT) and ('0' not in GT) :
                 #if present only one time 
                 if len(dicoGT[GT]) == 1 :
                     toadd = True
                     samplerank = dicoGT[GT]
         else:
-            if ('.' not in GT):
+            if ('.' not in GT) and ('0' not in GT):
                 if len(dicoGT[GT]) == 1 :
                     toadd = True
                     samplerank = dicoGT[GT]
+    if toadd == True:
+        for GT in dicoGT:
+            #if GT != GTSS:
+            if '.' in GT :
+                nbundefini = len(dicoGT[GT])
+                if nbundefini in dico_undefined:
+                    dico_undefined[ nbundefini ] = dico_undefined[ nbundefini ] + 1
+                else :
+                    dico_undefined[ nbundefini ] = 1
+            if "." not in dicoGT:
+                if 0 in dico_undefined:
+                    dico_undefined[ 0 ] = dico_undefined[ 0 ] + 1
+                else :
+                    dico_undefined[ 0 ] = 1
 
     return toadd, samplerank
+
+def good( ligne ):
+    samplerank = 0
+    toadd = False
+    variant_in_liste = ligne.split('\t')
+    #Keep sample information only 
+    variant_in_liste = variant_in_liste[9:]
+
+    dicoGT = {}
+    for i in variant_in_liste:
+        GT = i.split(":")[0]
+        #Si la taille du variant est 1 -> polidy 1
+        if len(GT) == 1 :
+            if GT not in dicoGT.keys():
+                #Ajout d'une clef GT avec comme valeur une liste des rang du variant
+                dicoGT[ GT ] = [ samplerank ]
+            else:
+                dicoGT[ GT ].append(samplerank)
+            samplerank+=1
+        #Sinon diploide 
+        else :
+            if GT not in dicoGT.keys():
+                #Creation d'une clef GT avec comme valeur une liste des rang du variant
+                dicoGT[ GT ]= [samplerank]
+            else:
+                dicoGT[ GT ].append(samplerank)
+            samplerank+=1
+    #Parcours le dico pour extraire un variant unique 
+    for GT in dicoGT:
+        #if GT != GTSS:
+        if len( GT )!= 1:
+            #if homozyogous 
+            if (GT[0] == GT[2]) and ('.' not in GT) and ('0' not in GT) :
+                #if present only one time 
+                if len(dicoGT[GT]) == 1 :
+                    toadd = True
+                    samplerank = dicoGT[GT]
+        else:
+            if ('.' not in GT) and ('0' not in GT):
+                if len(dicoGT[GT]) == 1 :
+                    toadd = True
+                    samplerank = dicoGT[GT]
+    return toadd
 
 def create_new_variant_line( variant , rank):
     #Creer la ligne a ajouter en gardant le bon variant et en ajoutant les autre dans INFO
@@ -89,11 +145,12 @@ dp = sys.argv[3]
 vcfheader = ''
 dicovariant = {}
 
+dico_undefined = {}
 
-number_removed_qual = 0
-number_removed_dp = 0 
+number_removed = 0 
 
-# on parcours le contenu du fichier ligne par ligne
+quallist = []
+# On parcours le contenu du fichier ligne par ligne
 for ligneN in open(vcfname, 'r'):
     ligne = ligneN.strip('\n')
     if ligne.startswith('##'):
@@ -113,8 +170,10 @@ for ligneN in open(vcfname, 'r'):
         #1	25062	.	T	C	2805.73	.	AC=6;AF=1.00;AN=6;DP=75;FS=0.000;MLEAC=6;MLEAF=1.00;MQ=60.00;QD=32.49;SOR=0.804	GT:AD:DP:GQ:PL	1:0,22:22:99:857,0	1:0,9:9:99:309,0	1:0,12:12:99:475,0	1:0,16:16:99:652,0	1:0,7:7:99:239,0	1:0,8:8:99:287,0
     else :
         qualvariant = ligne.split('\t')[5]
+        if good(ligne):
+            quallist.append(float(qualvariant))
         if float(qualvariant) < float(qualseuil):
-            number_removed_qual += 1
+            number_removed += 1
             #go to next line
             continue
         else :
@@ -124,7 +183,7 @@ for ligneN in open(vcfname, 'r'):
                     newline = create_new_variant_line( ligne , i)
                     dpsample = newline.split('\t')[-1].split(':')[2]
                     if int(dpsample) < int(dp):
-                        number_removed_dp += 1
+                        number_removed += 1
                         continue
                     if samplelist[i] not in dicovariant.keys():
                         #Creation d'une clef avec comme valeur le rang du variant
@@ -133,9 +192,8 @@ for ligneN in open(vcfname, 'r'):
                         dicovariant[ samplelist[i] ] = [ firstline , newline ]
                     else:
                         dicovariant[ samplelist[i] ].append( newline )
-
 for filename in dicovariant:
-    fichier = open(filename+"_"+vcfname, "w")
+    fichier = open(filename+"_"+vcfname.split("/")[-1], "w")
     fichier.write(vcfheader)
     for i in dicovariant[filename]:
         if i.endswith("\n"):
@@ -145,5 +203,26 @@ for filename in dicovariant:
     fichier.close()
 
 fstat = open( "nb_removed",'w')
-fstat.write("number_removed_qual\tnumber_removed_dp\n")
-fstat.write(str(number_removed_qual)+"\t"+str(number_removed_dp))
+fstat.write("number_removed\n")
+fstat.write( str(number_removed))
+
+print(dico_undefined)
+
+k = list(dico_undefined.keys()) 
+v = list(dico_undefined.values())
+
+data_undefined = {'Variant_undefined':k, 'Count': v}
+
+df_undefined = pd.DataFrame.from_dict(data_undefined)
+
+bar = px.bar(df_undefined, x='Variant_undefined', y='Count')
+bar.write_html("Undefined_variants_number_for_"+vcfname.split('/')[-1]+"_mqc.html")
+
+print(vcfname)
+
+dfqual = pd.DataFrame(quallist, columns =['Quality'])
+dfqual["filtered"] = np.where(dfqual["Quality"] < float(qualseuil), True, False)
+
+print(dfqual.describe())
+histqual = px.histogram(dfqual, x="Quality", color="filtered", title="Quality threshold = "+str(qualseuil), log_y = True )
+histqual.write_html( "Quality_of_specific_variation_for_"+vcfname.split('/')[-1]+"_mqc.html")

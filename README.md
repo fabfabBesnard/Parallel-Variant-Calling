@@ -17,7 +17,7 @@ This pipeline is designed to automatically provide the most exhaustive and accur
 The output is a user-friendly tsv table that can be parsed and filter with classical spreadsheet software (LibreOffice, Excel, ...). This table is sorted by gene and predicts functional impact(s) on the gene of the identified genomic variation(s) to help biologists find the best candidates genes modified in the sample(s) provided.
 
 The two main strengths of this pipeline are:
-- **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a starting strain and several derived mutant strains, all inherited mutations from the starting strain will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
+- **Automatic parallel analysis of a cohort of samples**: several samples' sequencing data can be provided at once and the pipeline automatically select genomic variations that are specific to each sample of the cohort. For example, in a mutagenesis experiment with a control strain" and several derived mutant strains, all inherited mutations from the control strain" will be discarded. This parallel analysis and multiple pairwise comparisons significantly **improve the specificity of the mutation search** by reducing false positive rate, while the automation of the workflow makes it easily scalable to large cohorts.
 - **Exhaustive variant calling**: the pipeline automatically combines several variant callers to cover a **large spectrum of possible genomic variations**, from single nucleotide polymorphisms (**SNP**) up to **structural variations** (SV) of several kbps (deletions, insertions, inversions, translocations, etc...). This improves variant calling accuracy and resolution, especially for SV, while again pipeline automation ensure a simple workflow for biologist end users.
 
 The pipeline is implemented in [Nextflow](https://www.nextflow.io/): it's very easy to install and allows to monitor the completion of all processes of the pipeline, can be deployed in clusters/clouds for parallel computing, it ensures reproducible analysis (simple configuration, supports Docker technology, keeps track of command lines and parameters), promotes efficient re-run and debugs, generates reports.
@@ -114,6 +114,11 @@ Most of the main paramters can be either directly configured at the beginning of
 
 - `--reads` : + path/to/files. Full path to directory and name of reads in fastq.gz. Only one argument is accepted, so you should use a pattern to select several files. Symbolic links are accepted, so you can group symlinks to sequencing files of a cohort to analyze in a dedicated folder of your analysis.
 Example: "Sequence* _{1,2}.fastq" ( `{1,2}` for paired reads ). (Use quotes "" to ensure the correct interpretation of pattern)
+
+or 
+
+- `--readsinbam` : + path/to/files. Full path to directory and name of your reads in .bam. Only one argument is accepted, so you should use a pattern to select several files. You can provide your own bam from different experimentation with different readgroup. (RGSM should be the same name of your file exemple : "RGSM=SOMETHING" SOMETHING.bam )
+Example: "Sequence*.bam" (Use quotes "" to ensure the correct interpretation of pattern)
 
 > Important note :
 >
