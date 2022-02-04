@@ -1,10 +1,24 @@
 import sys, random
 import HTSeq
-from itertools import takewhile
+
+
+# File author(s):
+#           Malik Talbi <malik.talbi.2b@gmail.com>
+#
+#       File contributor(s):
+#           Romuald Marin
+#           Malik Talbi <malik.talbi.2b@gmail.com>
+#           Fabrice Besnard <fabrice.besnard@ens-lyon.fr>
+#
+#       File maintainer(s) and contact :
+#           Fabrice Besnard <fabrice.besnard@ens-lyon.fr>
+#
+#       RDP Lab, Signal Team, Lyon - INRAe
+# ------------------------------------------------------------------------------
+
  
 """
-Prélève aléatoirement une fraction de reads dans des fichiers FastQ
-Exemple pour des RNA-seq paired-end reads
+Random sampling of a pair of paired-end read files in FatsQ format
  
 Usage:
 python fast_sample.py 0.5 input_1.fastq.gz input_2.fastq.gz output_1.fastq output_2.fastq check
@@ -14,7 +28,7 @@ python fast_sample.py 0.5 input_1.fastq.gz input_2.fastq.gz output_1.fastq outpu
 # Compteur du nombre de read ajouté
 nb_out = 0
 
-# Initilisation du dict paired
+# Initilisation du dict paired                                                                         
 # https://htseq.readthedocs.io/en/master/sequences.html#fastareader
 print("Lecture du premier fichier")
 sequences1 = dict((s.name, s) for s in HTSeq.FastqReader(sys.argv[2]))
