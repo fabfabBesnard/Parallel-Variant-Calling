@@ -1,0 +1,5 @@
+#!/home/adminmalik/Parallel-Variant-Calling/script/.venv/bin/python3
+
+import HTSeq.scripts.count_with_barcodes
+
+HTSeq.scripts.count_with_barcodes.main()
