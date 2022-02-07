@@ -55,6 +55,7 @@ https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html
 
 ### Virtual Environnement
 Once conda is installed, you need to get the virtual environnement containing all the dependencies of this one.
+This virtual environnement is called : var_call.
 The packages needed are listed in the requirements.yml file.
 Run the install_env script with bash in interactive mode using the -i option: 
 
@@ -69,11 +70,14 @@ conda-env list
 ```
 In the list of your conda environnements, you should have the var_call environnement.
 
-> # conda environments:
-> #
-> base                  *  /home/adminmalik/anaconda3
-> var_call                 /home/adminmalik/anaconda3/envs/var_call
+If the var_call environnement is not activate :
 
+```
+conda activate var_call
+```
+ > note
+ >
+ > The prompt is supposed to changed : (var_call), which implies that all conda commands apply to the var_call environment and only this one.
 
 ## Requirements
 
