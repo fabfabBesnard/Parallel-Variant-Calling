@@ -38,16 +38,31 @@ This pipeline has 3 major parts:
 
 <img src="img/Tech-Flowchart.jpg" alt="Flowchart" width="600"/>
 
-## Requirements
+## Installation
+
+### Conda
+In order to use the virtual environnement, you fisrt need to have anaconda. You can find all the information you need on the links below :
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
+
+#### Linux
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html
+
+#### Windows
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html
+
+#### macOS
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html
 
 ### Virtual Environnement
-Before using the pipeline, you first need to install the virtual environnement containing all the dependencies of this one.
+Once conda is installed, you need to get the virtual environnement containing all the dependencies of this one.
 The packages needed are listed in the requirements.yml file.
 Run the install_env script with bash in interactive mode using the -i option: 
 
 ```
 bash -i install_env.sh
 ```
+
+## Requirements
 
 ### Software
 You will need to install first:
