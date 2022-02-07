@@ -62,6 +62,19 @@ Run the install_env script with bash in interactive mode using the -i option:
 bash -i install_env.sh
 ```
 
+Check if the var_call is present like this :
+
+```
+conda-env list
+```
+In the list of your conda environnements, you should have the var_call environnement.
+
+> # conda environments:
+> #
+> base                  *  /home/adminmalik/anaconda3
+> var_call                 /home/adminmalik/anaconda3/envs/var_call
+
+
 ## Requirements
 
 ### Software
