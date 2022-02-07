@@ -21,6 +21,7 @@ conda env create -f requirements.yml
 
 # Activation of the environnement
 
+conda init bash 
 conda activate var_call
 
 # Check if HTSeq and numpy versions are correctly installed
