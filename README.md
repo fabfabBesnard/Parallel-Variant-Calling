@@ -40,6 +40,15 @@ This pipeline has 3 major parts:
 
 ## Requirements
 
+### Virtual Environnement
+Before using the pipeline, you first need to install the virtual environnement containing all the dependencies of this one.
+The packages needed are listed in the requirements.yml file.
+Run the install_env script with bash in interactive mode using the -i option: 
+
+```
+bash -i install_env.sh
+```
+
 ### Software
 You will need to install first:
 - Nextflow ([How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) in three little steps ! ).
