@@ -21,4 +21,4 @@ conda env create -f requirements.yml
 
 # Activation of the environnement
 
-conda source activate venv
+conda activate venv
