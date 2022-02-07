@@ -1,4 +1,4 @@
-name: venv
+name: var_call
 channels:
   - bioconda
   - defaults
