@@ -95,6 +95,7 @@ summary['minglobalqual']         = params.minglobalqual
 summary['mindepth']              = params.mindepth
 summary['VQSR']                  = params.vqsrfile  ?: 'Not supplied'
 summary['Output']                = params.outdir
+summary['sample']                = params.sample  ?: 'Not supplied'
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
 log.info "-\033[2m-------------------------------------------------------------------------\033[0m-"
 
@@ -140,14 +141,51 @@ if (params.genomefasta) {
               }
 }
 
-if (params.reads) {
+if (params.sample){ //mettre un décimal pour le float
+    
+    //If option sample is true we read the sample option and create the channel for sampling process
+    if (params.reads) {
         Channel
-            .fromFilePairs(params.reads, size:2)
+            .fromFilePairs( params.reads, size:2 )
             .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
-            .set{ fastqgz }
+            .set { into_file }
+    //We read the sample value to get the correct part of the reads file
         Channel
-            .fromPath(params.reads)
-            .set{ fastqgz_fastqc}
+            .value(params.sample)
+            .set {sample_var}
+
+        process sampling {
+            tag "$pair_id"
+            publishDir('sample/') //Put the output file into the sample repertory
+
+            input :
+            set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
+            val spl from sample_var
+
+            output :
+            set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
+
+            script :
+
+            """
+            python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+            """
+            }
+
+        Channel
+            .fromPath("sample/*_sampled.fastq")
+            .set{ fastqgz_fastqc }
+    }
+}
+else {
+    //If option sample is false we use the reads file for the rest of the script
+    Channel
+        .fromFilePairs( params.reads, size:2 )
+        .set { fastqgz }
+    Channel
+        .fromPath(params.reads )
+        .set{ fastqgz_fastqc} 
+}
 
 process Fastqc {
 label 'fastqc'
@@ -206,7 +244,7 @@ if (params.sampletable) {
     }
     else{
       process Mapping_reads {
-        label 'bwa'
+        label 'bwa1'
         tag "$pair_id"
 
         input:
@@ -291,7 +329,7 @@ if (params.sampletable) {
       """
     }
 
-  ///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
 /* --                   STEP   : ufilter and Get basics statistics        -- */
@@ -323,7 +361,6 @@ process Filtering_and_Indexing_bam {
   cp ${bam_RD_MD} ${pair_id}.bam
   samtools index ${pair_id}.bam ${pair_id}.bam.bai
   """
-}
 }
 
 if (params.readsinbam) {
@@ -429,7 +466,7 @@ process Create_ref_index {
 process Create_ref_dictionary {
   label 'gatk'
   tag "$fasta"
-  
+
   input:
   file fasta from  fasta_dict
 
@@ -437,9 +474,11 @@ process Create_ref_dictionary {
   file "*.dict" into fasta_dict_Variant_calling, fasta_dict_VQSR, fasta_dict_Structural_Variant_calling_GATK,fasta_dict_Structural_Variant_calling_GATK_prepare, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_Gvcf_to_vcf_after_bqsr , fasta_dict_extract_Extract_SNP_VQSR,fasta_dict_Extract_INDEL_VQSR,fasta_dict_extract_after_bqsr , fasta_dict_BaseRecalibrator , fasta_dict_Variant_calling_after_bqsr
 
   script:
+
   """
   gatk  --java-options "-Xmx${task.memory.giga}g" CreateSequenceDictionary -R $fasta
   """
+
 }
 
 //https://gatk.broadinstitute.org/hc/en-us/articles/360035890411-Calling-variants-on-cohorts-of-samples-using-the-HaplotypeCaller-in-GVCF-mode
