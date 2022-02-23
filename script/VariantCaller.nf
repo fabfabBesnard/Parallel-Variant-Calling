@@ -121,7 +121,7 @@ if (params.genomefasta) {
             fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
             process Create_genome_bwa_index {
-              label "bwa"
+              label "bwa1"
               tag "$fasta.simpleName"
               publishDir "results/mapping/index/", mode: 'copy'
 
@@ -238,13 +238,13 @@ if (params.sampletable) {
         """
         bwa mem -t ${task.cpus} \
         -aM ${index_id} ${reads[0]} ${reads[1]} \
-        -o ${sample_id}.sam &> ${sample_id}_bwa_report.txt
+        -o ${sample_id}.sam
         """
       }
     }
     else{
       process Mapping_reads {
-        label 'bwa1'
+        label 'bwa'
         tag "$pair_id"
 
         input:
@@ -302,7 +302,7 @@ if (params.sampletable) {
     //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
 
     process Add_ReadGroup_and_MarkDuplicates_bam {
-      label 'picardtools'
+      //label 'picardtools'
       tag "$pair_id"
 
       input:
@@ -314,6 +314,22 @@ if (params.sampletable) {
 
       script:
       """
+      picard AddOrReplaceReadGroups \
+          -I ${bam_file} \
+          -O "${pair_id}.bam" \
+          -RGID ${pair_id} \
+          -RGLB lib1 \
+          -RGPL illumina \
+          -RGPU unit1 \
+          -RGSM ${pair_id}
+
+      picard MarkDuplicates \
+          -I "${pair_id}.bam" \
+          -O "${pair_id}_readGroup_MarkDuplicates.bam" \
+          -M "${pair_id}_marked_dup_metrics.txt"
+      """
+
+      /*"""
       PicardCommandLine AddOrReplaceReadGroups \
           I=${bam_file} \
           O="${pair_id}.bam" \
@@ -326,7 +342,7 @@ if (params.sampletable) {
           I="${pair_id}.bam" \
           O="${pair_id}_readGroup_MarkDuplicates.bam" \
           M="${pair_id}_marked_dup_metrics.txt"
-      """
+      """*/
     }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -338,11 +354,11 @@ if (params.sampletable) {
 ///////////////////////////////////////////////////////////////////////////////
 
 process Filtering_and_Indexing_bam {
-  label 'samtools'
+  label 'samtools1'
   tag "$pair_id"
 
   input:
-  set pair_id, bam_RD_MD from bam_files_RG_MD
+  set pair_id, file(bam_RD_MD) from bam_files_RG_MD
 
   output:
   set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
@@ -352,6 +368,7 @@ process Filtering_and_Indexing_bam {
   file "${pair_id}.bam" into bam_files_cov
 
   script:
+
   """
   samtools view -hu -F4 ${bam_RD_MD} | samtools view -hu -F256 - | samtools view -hb -f3 - > ${pair_id}_ufilter.bam
 	samtools flagstat ${pair_id}_ufilter.bam > ${pair_id}.txt
@@ -683,6 +700,9 @@ process Extract_INDEL_and_filtering {
 ///////////////////////////////////////////////////////////////////////////////
  //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
  //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
+
+ext_spec = Channel.fromPath("$PWD/$params.scriptdir/extract_specific.py")
+
 if (params.vqsrfile) {
 
   Channel
@@ -821,6 +841,7 @@ else{
         val qual from params.minglobalqual
         val dpmin from params.mindepth
         file vcf from snp_files.concat(indel_files)
+        file ext_spec
 
         output:
         file "*.vcf" into good_variant , good_variant_for_mqc
@@ -828,8 +849,9 @@ else{
         file "nb_removed" into removed
 
         script:
+
         """
-        $scriptpath/extract_specific.py $vcf $qual $dpmin
+        python $ext_spec $vcf $qual $dpmin
         """
     }
 }
@@ -842,14 +864,17 @@ else{
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+brdancer = Channel.fromPath("$PWD/$params.scriptdir/breakdancer2vcf.py")
+
 process Structural_Variant_calling_breakdancer {
   label 'breakdancer'
   tag "${pair_id}"
   publishDir "${params.outdir}/structural_variant/", mode: 'copy'
 
   input:
-  set pair_id, bam , bai from non_filtered_bam_files_breakdancer
+  set pair_id, file(bam) , bai from non_filtered_bam_files_breakdancer
   val scriptpath from params.scriptdir
+  file brdancer
 
   output:
   set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files , breackdancer_metasv
@@ -865,7 +890,7 @@ process Structural_Variant_calling_breakdancer {
   breakdancer-max ${pair_id}_config.cfg > breakdancer_${pair_id}.ctx
 
   # Transform ctx into vcf
-  python $scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
+  python $PWD/$scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
   """
 }
 
@@ -910,6 +935,8 @@ process Structural_Variant_calling_pindel {
   """
 }
 
+lpy = Channel.fromPath("$PWD/$params.scriptdir/extractSplitReads_BwaMem.py")
+
 //https://github.com/arq5x/lumpy-sv
 process Structural_Variant_calling_Lumpy {
   label 'lumpy'
@@ -917,8 +944,9 @@ process Structural_Variant_calling_Lumpy {
   publishDir "${params.outdir}/structural_variant/", mode: 'copy'
 
   input:
-  val scriptpath from params.scriptdir
-  set pair_id , bam , bai from bam_for_lumpy_2
+  //var scriptpath from params.scriptdir
+  set pair_id , file(bam) , bai from bam_for_lumpy_2
+  file lpy
 
   output:
   file "Lumpy_${pair_id}.vcf" into lumpy_out
@@ -928,7 +956,7 @@ process Structural_Variant_calling_Lumpy {
   # Extract the discordant paired-end alignments.
   samtools view -b -F 1294 $bam > sample.discordants.unsorted.bam
 
-  samtools view -h $bam | $scriptpath/extractSplitReads_BwaMem -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
+  samtools view -h $bam | python $lpy -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
   
   # Sort both alignments
   samtools sort sample.discordants.unsorted.bam -o sample.discordants.bam
@@ -1039,7 +1067,7 @@ process Find_specific_SV{
 
         script:
         """
-        $scriptpath/extract_specific_SV.py
+        python $PWD/$scriptpath/extract_specific_SV.py
         """
 }
 
@@ -1249,6 +1277,8 @@ process Generate_custom_summary {
       file "*_mqc*" into to_multiqc
 
       script:
+      //fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
+
       """
 #! python3
 import plotly.express as px
@@ -1306,10 +1336,22 @@ for file_temp in files:
 
     #for variant impact
     df_resume = df.groupby('ANN[*].IMPACT').count()['DP']
-    high = df_resume['HIGH']
-    moderate = df_resume['MODERATE']
-    low = df_resume['LOW']
-    modifier = df_resume['MODIFIER']
+    try :
+      high = df_resume['HIGH']
+    except KeyError :
+      high = 0
+    try :
+      moderate = df_resume['MODERATE']
+    except KeyError :
+      moderate = 0
+    try :
+      low = df_resume['LOW']
+    except KeyError :
+      low = 0
+    try :
+      modifier = df_resume['MODIFIER']
+    except KeyError :
+      modifier = 0
     fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
 
     #for variant type info
