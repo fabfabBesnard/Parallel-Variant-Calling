@@ -13,18 +13,19 @@
 #       RDP Lab, Signal Team, Lyon - INRAe
 # ------------------------------------------------------------------------------
 
-# Anaconda is required to install the environnement
+# Anaconda is required to create the environnement
 
-# Creation of the environnement using the requirements.yml file
+#Execute the pipeline using bash -i 
 
-conda env create -f requirements.yml
+#Environement creation with Python3.8
 
-# Activation of the environnement
+conda create -n var_call python=3.8
 
-conda init bash 
+#Activation of var_call
+
 conda activate var_call
 
-# Check if HTSeq and numpy versions are correctly installed
+#Packages Installation
 
-python3 -m pip install htseq
-python3 -m pip install --upgrade numpy
+pip install htseq #HTSeq
+conda install -c bioconda picard #picard

@@ -491,9 +491,10 @@ process Create_ref_dictionary {
   file "*.dict" into fasta_dict_Variant_calling, fasta_dict_VQSR, fasta_dict_Structural_Variant_calling_GATK,fasta_dict_Structural_Variant_calling_GATK_prepare, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_Gvcf_to_vcf_after_bqsr , fasta_dict_extract_Extract_SNP_VQSR,fasta_dict_Extract_INDEL_VQSR,fasta_dict_extract_after_bqsr , fasta_dict_BaseRecalibrator , fasta_dict_Variant_calling_after_bqsr
 
   script:
+  //${task.memory.giga}
 
   """
-  gatk  --java-options "-Xmx${task.memory.giga}g" CreateSequenceDictionary -R $fasta
+  gatk  --java-options "-Xmx30g" CreateSequenceDictionary -R $fasta
   """
 
 }
@@ -1202,7 +1203,7 @@ else{
         echo "#Physcomitrium (Physcomitrella) patens (${fa.baseName}, 11/03/2021)" >> snpEff.config
         echo "${fa.baseName}.genome : Physcomitrium patens"  >> snpEff.config
 
-        snpeff build -gff3 -c snpEff.config -v ${fa.baseName}
+        snpEff build -gff3 -c snpEff.config -v ${fa.baseName}
         """
         }
 
