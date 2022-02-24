@@ -142,6 +142,22 @@ if (params.genomefasta) {
 }
 
 if (params.sample){ //mettre un décimal pour le float
+
+    process Empty_sample_dir {
+      script :
+
+      """
+      #! python3
+      import os
+
+      if os.path.exists("${PWD}/${params.outdir}/sample"):
+        print("Sample Directory removed for a new one")
+        os.system("rm -rf ${PWD}/${params.outdir}/sample")
+      else :
+        print("No Sample Direcory yet")
+
+      """
+    }
     
     //If option sample is true we read the sample option and create the channel for sampling process
     if (params.reads) {
@@ -156,7 +172,7 @@ if (params.sample){ //mettre un décimal pour le float
 
         process sampling {
             tag "$pair_id"
-            publishDir('sample/') //Put the output file into the sample repertory
+            publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
 
             input :
             set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
@@ -173,7 +189,7 @@ if (params.sample){ //mettre un décimal pour le float
             }
 
         Channel
-            .fromPath("sample/*_sampled.fastq")
+            .fromPath("${params.outdir}/sample/*_sampled.fastq")
             .set{ fastqgz_fastqc }
     }
 }
