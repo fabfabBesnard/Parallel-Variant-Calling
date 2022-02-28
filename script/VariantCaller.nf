@@ -142,7 +142,7 @@ if (params.genomefasta) {
 }
 
 if (params.sample){ //mettre un décimal pour le float
-
+                                             
     process Empty_sample_dir {
       script :
 
@@ -172,7 +172,7 @@ if (params.sample){ //mettre un décimal pour le float
 
         process sampling {
             tag "$pair_id"
-            publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
+            publishDir("${params.outdir}/.sample") //Put the output file into the sample repertory
 
             input :
             set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
@@ -184,7 +184,7 @@ if (params.sample){ //mettre un décimal pour le float
             script :
 
             """
-            python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+            python3 ${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
             """
             }
 
