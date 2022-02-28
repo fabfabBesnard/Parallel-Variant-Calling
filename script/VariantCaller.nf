@@ -184,7 +184,7 @@ if (params.sample){ //mettre un décimal pour le float
             script :
 
             """
-            python3 ${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+            python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
             """
             }
 
