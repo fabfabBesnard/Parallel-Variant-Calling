@@ -123,7 +123,7 @@ if (params.genomefasta) {
             process Create_genome_bwa_index {
               label "bwa1"
               tag "$fasta.simpleName"
-              publishDir "results/mapping/index/", mode: 'copy'
+              publishDir "${params.outdir}/mapping/index/", mode: 'copy'
 
               input:
                 file fasta  from fasta_file
@@ -143,8 +143,8 @@ if (params.genomefasta) {
 
 if (params.sample){ //mettre un décimal pour le float
                                              
-    process Empty_sample_dir {
-      script :
+  process Empty_sample_dir {
+    script :
 
       """
       #! python3
@@ -154,44 +154,41 @@ if (params.sample){ //mettre un décimal pour le float
         print("Sample Directory removed for a new one")
         os.system("rm -rf ${PWD}/${params.outdir}/sample")
       else :
-        print("No Sample Direcory yet")
+        print("No Sample Directory yet")
 
       """
-    }
+  }
     
     //If option sample is true we read the sample option and create the channel for sampling process
-    if (params.reads) {
-        Channel
-            .fromFilePairs( params.reads, size:2 )
-            .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
-            .set { into_file }
+  if (params.reads) {
+    Channel
+      .fromFilePairs( params.reads, size:2 )
+      .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
+      .set { into_file }
     //We read the sample value to get the correct part of the reads file
-        Channel
-            .value(params.sample)
-            .set {sample_var}
+    Channel
+      .value(params.sample)
+      .set {sample_var}
 
-        process sampling {
-            tag "$pair_id"
-            publishDir("${params.outdir}/.sample") //Put the output file into the sample repertory
+    process sampling {
+      tag "$pair_id"
+      publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
 
-            input :
-            set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
-            val spl from sample_var
+      input :
+        set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
+        val spl from sample_var
 
-            output :
-            set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
+      output :
+        set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
+        file("${pair_id}*_sampled.fastq") into fastqgz_fastqc
 
-            script :
+      script :
 
-            """
-            python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
-            """
-            }
-
-        Channel
-            .fromPath("${params.outdir}/sample/*_sampled.fastq")
-            .set{ fastqgz_fastqc }
+      """
+        python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+      """
     }
+  }
 }
 else {
     //If option sample is false we use the reads file for the rest of the script
@@ -200,7 +197,7 @@ else {
         .set { fastqgz }
     Channel
         .fromPath(params.reads )
-        .set{ fastqgz_fastqc} 
+        .set{ fastqgz_fastqc}
 }
 
 process Fastqc {
@@ -214,6 +211,8 @@ output:
 file "*.{zip,html}" into fastq_repport_files
 
 script:
+
+println read
 """
 fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
           ${read}
