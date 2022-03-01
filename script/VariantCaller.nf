@@ -170,6 +170,8 @@ if (params.sample){ //mettre un décimal pour le float
       .value(params.sample)
       .set {sample_var}
 
+    fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
+
     process sampling {
       tag "$pair_id"
       publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
@@ -177,6 +179,7 @@ if (params.sample){ //mettre un décimal pour le float
       input :
         set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
         val spl from sample_var
+        file fastq_sample
 
       output :
         set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
@@ -185,7 +188,7 @@ if (params.sample){ //mettre un décimal pour le float
       script :
 
       """
-        python3 $PWD/${params.scriptdir}/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+        python3 $fastq_sample ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
       """
     }
   }
@@ -717,7 +720,7 @@ process Extract_INDEL_and_filtering {
  //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
  //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
 
-ext_spec = Channel.fromPath("$PWD/$params.scriptdir/extract_specific.py")
+ext_spec = Channel.fromPath("$params.scriptdir/extract_specific.py")
 
 if (params.vqsrfile) {
 
@@ -880,7 +883,7 @@ else{
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-brdancer = Channel.fromPath("$PWD/$params.scriptdir/breakdancer2vcf.py")
+brdancer = Channel.fromPath("$params.scriptdir/breakdancer2vcf.py")
 
 process Structural_Variant_calling_breakdancer {
   label 'breakdancer'
@@ -906,7 +909,7 @@ process Structural_Variant_calling_breakdancer {
   breakdancer-max ${pair_id}_config.cfg > breakdancer_${pair_id}.ctx
 
   # Transform ctx into vcf
-  python $PWD/$scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
+  python $scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
   """
 }
 
@@ -951,7 +954,7 @@ process Structural_Variant_calling_pindel {
   """
 }
 
-lpy = Channel.fromPath("$PWD/$params.scriptdir/extractSplitReads_BwaMem.py")
+lpy = Channel.fromPath("$params.scriptdir/extractSplitReads_BwaMem.py")
 
 //https://github.com/arq5x/lumpy-sv
 process Structural_Variant_calling_Lumpy {
@@ -1083,7 +1086,7 @@ process Find_specific_SV{
 
         script:
         """
-        python $PWD/$scriptpath/extract_specific_SV.py
+        python $scriptpath/extract_specific_SV.py
         """
 }
 
