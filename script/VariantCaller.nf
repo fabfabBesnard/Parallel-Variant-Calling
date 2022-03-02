@@ -150,16 +150,16 @@ if (params.sample){ //mettre un décimal pour le float
       #! python3
       import os
 
-      if os.path.exists("${PWD}/${params.outdir}/sample"):
+      if os.path.exists("${params.outdir}/sample"):
         print("Sample Directory removed for a new one")
-        os.system("rm -rf ${PWD}/${params.outdir}/sample")
+        os.system("rm -rf ${params.outdir}/sample")
       else :
         print("No Sample Directory yet")
 
       """
   }
     
-    //If option sample is true we read the sample option and create the channel for sampling process
+  //If option sample is true we read the sample option and create the channel for sampling process
   if (params.reads) {
     Channel
       .fromFilePairs( params.reads, size:2 )
@@ -172,14 +172,13 @@ if (params.sample){ //mettre un décimal pour le float
 
     fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
 
-    process sampling {
+    process Sampling {
       tag "$pair_id"
       publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
 
       input :
         set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
         val spl from sample_var
-        file fastq_sample
 
       output :
         set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
@@ -188,10 +187,13 @@ if (params.sample){ //mettre un décimal pour le float
       script :
 
       """
-        python3 $fastq_sample ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+        python3 $params.scriptdir/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
       """
     }
   }
+  Channel
+    .fromPath("${params.outdir}/sample/*" )
+    .set{ fastqgz_fastqc}
 }
 else {
     //If option sample is false we use the reads file for the rest of the script
@@ -215,7 +217,6 @@ file "*.{zip,html}" into fastq_repport_files
 
 script:
 
-println read
 """
 fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
           ${read}
