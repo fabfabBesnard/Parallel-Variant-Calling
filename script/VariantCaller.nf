@@ -170,7 +170,7 @@ if (params.sample){ //mettre un décimal pour le float
       .value(params.sample)
       .set {sample_var}
 
-    fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
+    //fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
 
     process Sampling {
       tag "$pair_id"
@@ -183,11 +183,12 @@ if (params.sample){ //mettre un décimal pour le float
       output :
         set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
         file("${pair_id}*_sampled.fastq") into fastqgz_fastqc
+        val pair_id into pair_id_for_breakdancer, pair_id_for_lumpy
 
       script :
 
       """
-        python3 $params.scriptdir/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+      python3 $projectDir/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
       """
     }
   }
@@ -383,7 +384,7 @@ process Filtering_and_Indexing_bam {
   set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
   set pair_id, "${pair_id}.txt" into flagstat_files
   set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools
-  set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_cnvnator, non_filtered_bam_files_breakdancer , non_filtered_bam_files_metasv
+  set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_breakdancer, non_filtered_bam_files_cnvnator, non_filtered_bam_files_metasv
   file "${pair_id}.bam" into bam_files_cov
 
   script:
@@ -721,7 +722,7 @@ process Extract_INDEL_and_filtering {
  //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
  //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
 
-ext_spec = Channel.fromPath("$params.scriptdir/extract_specific.py")
+//ext_spec = Channel.fromPath("$params.scriptdir/extract_specific.py")
 
 if (params.vqsrfile) {
 
@@ -833,7 +834,6 @@ if (params.vqsrfile) {
         publishDir "${params.outdir}/variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
         file vcf from indelVQSR.concat(snpVQSR)
@@ -845,7 +845,7 @@ if (params.vqsrfile) {
 
         script:
         """
-        $scriptpath/extract_specific.py $vcf $qual $dpmin
+        $ext_spec $vcf $qual $dpmin
         """
     }
 
@@ -857,11 +857,9 @@ else{
         publishDir "${params.outdir}/variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
         file vcf from snp_files.concat(indel_files)
-        file ext_spec
 
         output:
         file "*.vcf" into good_variant , good_variant_for_mqc
@@ -871,7 +869,7 @@ else{
         script:
 
         """
-        python $ext_spec $vcf $qual $dpmin
+        python $params.scriptdir/extract_specific.py$vcf $qual $dpmin
         """
     }
 }
@@ -884,33 +882,44 @@ else{
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-brdancer = Channel.fromPath("$params.scriptdir/breakdancer2vcf.py")
-
-process Structural_Variant_calling_breakdancer {
+//file1 = Channel.fromPath(params.reads)
+//file2 = Channel.fromPath(params.reads)
+process Structural_Variant_calling_breakdancer_step1 {
   label 'breakdancer'
   tag "${pair_id}"
-  publishDir "${params.outdir}/structural_variant/", mode: 'copy'
+  publishDir "${params.outdir}/structural_variant/"
 
   input:
-  set pair_id, file(bam) , bai from non_filtered_bam_files_breakdancer
-  val scriptpath from params.scriptdir
-  file brdancer
+  set pair_id, "${pair_id}.bam", "${pair_id}.bam.bai" from non_filtered_bam_files_breakdancer
 
   output:
-  set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files , breackdancer_metasv
+  set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files, breackdancer_metasv, breakdancer_step2
   file "${pair_id}_config.cfg" into config_breakdancer
-  set pair_id, "breakdancer_${pair_id}.vcf" into breakdancer_vcf
 
   script:
-  //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon 
-  """
+  //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon
 
-  bam2cfg $bam -o ${pair_id}_config.cfg
+  """
+  bam2cfg ${pair_id}.bam -o ${pair_id}_config.cfg
   
   breakdancer-max ${pair_id}_config.cfg > breakdancer_${pair_id}.ctx
+  """
+}
 
+process Structural_Variant_calling_breakdancer_step2 {
+  tag "${pair_id}"
+  publishDir "${params.outdir}/structural_variant/"
+
+  input :
+  set pair_id, file("breakdancer_${pair_id}.ctx") from breakdancer_step2
+
+  output :
+  set pair_id, "breakdancer_${pair_id}.vcf" into breakdancer_vcf
+
+  script :
+  """
   # Transform ctx into vcf
-  python $scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
+  python $projectDir/breakdancer2vcf.py -i breakdancer_${pair_id}.ctx -o 'breakdancer_${pair_id}.vcf'
   """
 }
 
@@ -955,38 +964,52 @@ process Structural_Variant_calling_pindel {
   """
 }
 
-lpy = Channel.fromPath("$params.scriptdir/extractSplitReads_BwaMem.py")
-
 //https://github.com/arq5x/lumpy-sv
-process Structural_Variant_calling_Lumpy {
-  label 'lumpy'
+
+process Structural_Variant_calling_Lumpy_step1 {
   tag "${pair_id}"
-  publishDir "${params.outdir}/structural_variant/", mode: 'copy'
+  publishDir "${params.outdir}/structural_variant/"
 
   input:
-  //var scriptpath from params.scriptdir
-  set pair_id , file(bam) , bai from bam_for_lumpy_2
-  file lpy
+  set pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") from bam_for_lumpy_2
 
   output:
-  file "Lumpy_${pair_id}.vcf" into lumpy_out
+  set pair_id, file("${pair_id}_sample.discordants.bam"), file("${pair_id}_sample.splitters.bam"), file("${pair_id}.bam") into lumpy_step2
 
   script:
   """
   # Extract the discordant paired-end alignments.
-  samtools view -b -F 1294 $bam > sample.discordants.unsorted.bam
+  samtools view -b -F 1294 ${pair_id}.bam > sample.discordants.unsorted.bam
 
-  samtools view -h $bam | python $lpy -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
+  samtools view -h ${pair_id}.bam | python $projectDir/extractSplitReads_BwaMem.py -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
   
   # Sort both alignments
-  samtools sort sample.discordants.unsorted.bam -o sample.discordants.bam
-  samtools sort sample.splitters.unsorted.bam -o sample.splitters.bam
+  samtools sort sample.discordants.unsorted.bam -o ${pair_id}_sample.discordants.bam
+  samtools sort sample.splitters.unsorted.bam -o ${pair_id}_sample.splitters.bam
+  """
 
+}
+
+process Structural_Variant_calling_Lumpy_step2 {
+  label 'lumpy'
+  tag "${pair_id}"
+  publishDir "${params.outdir}/structural_variant/"
+
+  input:
+  set pair_id, file("${pair_id}_sample.discordants.bam"), file("${pair_id}_sample.splitters.bam"), file("${pair_id}.bam") from lumpy_step2
+  
+  output:
+  file "Lumpy_${pair_id}.vcf" into lumpy_out
+  
+
+  script:
+
+  """
   #Run Lumpy in express mode
   lumpyexpress \
-    -B $bam \
-    -S sample.splitters.bam \
-    -D sample.discordants.bam \
+    -B ${pair_id}.bam \
+    -S ${pair_id}_sample.splitters.bam\
+    -D ${pair_id}_sample.discordants.bam\
     -o Lumpy_${pair_id}.vcf
   """
 }
