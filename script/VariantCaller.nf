@@ -1110,7 +1110,7 @@ process Find_specific_SV{
 
         script:
         """
-        python $scriptpath/extract_specific_SV.py
+        python $projectDir/extract_specific_SV.py
         """
 }
 
