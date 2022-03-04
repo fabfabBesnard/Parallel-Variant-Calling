@@ -869,7 +869,7 @@ else{
         script:
 
         """
-        python $params.scriptdir/extract_specific.py$vcf $qual $dpmin
+        python $projectDir/extract_specific.py $vcf $qual $dpmin
         """
     }
 }
@@ -1258,7 +1258,7 @@ else{
         input:
         file configfile from configsnpeff.collect()
         file fa from fasta_Snpeff_variant_effect.collect()
-        file file_vcf from good_variant.flatten().concat(vcfmetasv)
+        file file_vcf from good_variant.flatten()//.concat(vcfmetasv)
         file directorysnpeff from snpfile.collect()
 
         output:
@@ -1268,6 +1268,9 @@ else{
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
+
+        println file_vcf
+        
         """
         snpeff ${fa.baseName} \
         -c $configfile \
