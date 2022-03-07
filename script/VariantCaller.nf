@@ -82,7 +82,6 @@ if (params.help) {
 // Header log info
 log.info nfcoreHeader()
 def summary = [:]
-summary['scriptdir']             = params.scriptdir ?: 'Not supplied'
 summary['reads']                 = params.reads ?: 'Not supplied'
 summary['readsinbam']            = params.readsinbam ?: 'Not supplied'
 summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
@@ -511,7 +510,6 @@ process Create_ref_dictionary {
   file "*.dict" into fasta_dict_Variant_calling, fasta_dict_VQSR, fasta_dict_Structural_Variant_calling_GATK,fasta_dict_Structural_Variant_calling_GATK_prepare, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_Gvcf_to_vcf_after_bqsr , fasta_dict_extract_Extract_SNP_VQSR,fasta_dict_Extract_INDEL_VQSR,fasta_dict_extract_after_bqsr , fasta_dict_BaseRecalibrator , fasta_dict_Variant_calling_after_bqsr
 
   script:
-  //${task.memory.giga}
 
   """
   gatk  --java-options "-Xmx30g" CreateSequenceDictionary -R $fasta
@@ -1102,7 +1100,6 @@ process Find_specific_SV{
         publishDir "${params.outdir}/structural_variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         file SV from vcfmetasv_withnonspecific.collect()
 
         output:
