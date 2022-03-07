@@ -191,9 +191,9 @@ if (params.sample){ //mettre un décimal pour le float
       """
     }
   }
-  Channel
+  /*Channel
     .fromPath("${params.outdir}/sample/*" )
-    .set{ fastqgz_fastqc}
+    .set{ fastqgz_fastqc}*/
 }
 else {
     //If option sample is false we use the reads file for the rest of the script
