@@ -321,7 +321,7 @@ if (params.sampletable) {
     //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
 
     process Add_ReadGroup_and_MarkDuplicates_bam {
-      //label 'picardtools'
+      label 'picardtools'
       tag "$pair_id"
 
       input:
