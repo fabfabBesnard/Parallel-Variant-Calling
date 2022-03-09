@@ -164,7 +164,7 @@ V300042688_L4_AE47136387-610,Mutant3
 
 - `--mindepth` : + numeric. (only for short indel and snp) Minimal cutoff threshold of depth (number of reads) for a variant per sample. Default: 4
 
-- '--sample' : + float between 0 and 1. Create a randomly a sample files from your reads data and the float you give and use them for the rest of the pipeline. Default: false
+- `--sample` : + float between 0 and 1. Create a randomly a sample files from your reads data and the float you give and use them for the rest of the pipeline. Default: false
 
 - `-resume` : (nothing to add). With this flag, previously generated files from other analysis that are strictly identical to this new worflow will be retrieved from the cache, save computation time and ressource !
 
