@@ -125,7 +125,7 @@ if (params.genomefasta) {
               publishDir "${params.outdir}/mapping/index/", mode: 'copy'
 
               input:
-                file fasta  from fasta_file
+                file fasta from fasta_file
 
               output:
                 file "${fasta.baseName}.*" into index_files 
@@ -250,14 +250,14 @@ if (params.sampletable) {
 
         output:
         set sample_id, "${sample_id}.sam" into sam_files
-        set sample_id, "${sample_id}_bwa_report.txt" into mapping_repport_files
+        set sample_id, "${sample_id}_bwa_report.txt" into mapping_report_files
 
         script:
-        index_id = index[0].baseName
+        index_id = index[0].baseName // Point to Reference genome (See process bwa1 or "Create_genome_bwa_index")
         """
         bwa mem -t ${task.cpus} \
         -aM ${index_id} ${reads[0]} ${reads[1]} \
-        -o ${sample_id}.sam
+        > ${sample_id}.sam 2> ${sample_id}_bwa_report.txt
         """
       }
     }
