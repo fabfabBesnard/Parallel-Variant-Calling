@@ -213,7 +213,7 @@ input:
 file read from fastqgz_fastqc
 
 output:
-file "*.{zip,html}" into fastq_repport_files
+file "*.{zip,html}" into fastq_report_files
 
 script:
 
@@ -272,7 +272,7 @@ if (params.sampletable) {
 
         output:
         set pair_id, "${pair_id}.sam" into sam_files
-        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
+        set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
 
         script:
         index_id = index[0].baseName
@@ -1488,9 +1488,9 @@ else{
      publishDir "${params.outdir}/multiQC", mode: 'copy'
 
      input:
-     file report_fastqc from fastq_repport_files.collect()
+     file report_fastqc from fastq_report_files.collect()
      file report_flagstat from flagstat_files.collect()
-     file report_mapping from mapping_repport_files.collect()
+     file report_mapping from mapping_report_files.collect()
      file report_picard from picardmetric_files.collect()
      //file report_gatk from gatkmetric_files.collect()
      file report_custom from to_multiqc.collect()
