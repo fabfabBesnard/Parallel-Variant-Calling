@@ -53,10 +53,13 @@ docker build -t snpeff:latest . # should be run in this 'dockersnpeff' directory
 ! **note 1**: do not worry if the terminal prints "ERROR while connecting to ..." the species database: the database is correctly downloaded however.
 
 ! **note 2**: verify that the image has the right content by mounting the container and exploring its content interactively:
-		`docker image list` #your new image shoulde appear in the list
-		`docker run -it snpeff:latest bash` # if needed, replace snpeff:latest by correct image_name:tag. Your prompt should have changed with something like "root@9fa82673eb90:/myapp#", indciating that you are now in the image container
-		`java -jar snpEff/snpEff.jar -version` # verify that snpEff command is working inside the container
-		`ls snpEff/data` # With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe. 
+		`docker image list #your new image shoulde appear in the list `
+
+		`docker run -it snpeff:latest bash # if needed, replace snpeff:latest by correct image_name:tag. Your prompt should have changed with something like "root@9fa82673eb90:/myapp#", indicating that you are now in the image container`
+
+		`java -jar snpEff/snpEff.jar -version # verify that snpEff command is working inside the container`
+
+		`ls snpEff/data # With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe.`
 
 ! **Note 3**: Each folder contains a unique file called `snpEffectPredictor.bin`
 
