@@ -1,8 +1,11 @@
 FROM ubuntu:20.04
-LABEL maintener="romudock"
+LABEL maintener="Fabrice Besnard <fabrice.besnard@ens-lyon.fr>"
+LABEL repository="https://github.com/fabfabBesnard/Parallel-Variant-Calling/"
+LABEL description="Latest snpEff program coming with a few pre-built databases for popular model organisms in biology"
 
-WORKDIR .
-
+# Build a context directory (e.g.: https://newbedev.com/what-is-app-working-directory-for-a-dockerfile)
+WORKDIR /myapp
+# Change Shell to 'bash', default is 'sh'
 SHELL [ "/bin/bash", "-c" ]
 
 RUN apt-get -y update && \
