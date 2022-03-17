@@ -70,7 +70,7 @@ docker build -t snpeff:latest .
 	$:ls snpEff/data 
 *#comment: With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe*
 
-! **Note 3**: Each folder contains a unique file called `snpEffectPredictor.bin`
+/!\ **Note 3**: Each folder contains a unique file called `snpEffectPredictor.bin`
 
 To share and distribute your new docker image, push it to dockerhub. You need a dockerhub account (use Docker hub [documentation] (https://docs.docker.com/docker-hub/)). Then simply push your image on the distant dockerhub server, e.g.:
 
