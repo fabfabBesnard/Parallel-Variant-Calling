@@ -48,25 +48,37 @@ RUN cd snpEff && \
 
 Provided that Docker (tested for >v20.10.3) is installed on your system, build and save the docker image with this command line:
 ```
-docker build -t snpeff:latest . # should be run in this 'dockersnpeff' directory, so that by default Dockerfile is sourced here
+docker build -t snpeff:latest . 
 ```
-! **note 1**: do not worry if the terminal prints "ERROR while connecting to ..." the species database: the database is correctly downloaded however.
+*#comment: # should be run in this 'dockersnpeff' directory, so that by default Dockerfile is sourced here*
 
-! **note 2**: verify that the image has the right content by mounting the container and exploring its content interactively:
-		`docker image list #your new image shoulde appear in the list `
+/!\ **note 1**: do not worry if the terminal prints `ERROR while connecting to ...` (and then mentioning the species database): the database is correctly downloaded however.
 
-		`docker run -it snpeff:latest bash # if needed, replace snpeff:latest by correct image_name:tag. Your prompt should have changed with something like "root@9fa82673eb90:/myapp#", indicating that you are now in the image container`
+/!\ **note 2**: verify that the image has the right content by mounting the container and exploring its content interactively, using the following commands:
 
-		`java -jar snpEff/snpEff.jar -version # verify that snpEff command is working inside the container`
+	~$:docker image list
 
-		`ls snpEff/data # With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe.`
+*#comment: the new image you just built should appear in the list*
+
+	~$:docker run -it snpeff:latest bash 
+*#comment: if needed, replace snpeff:latest by the correct image_name:tag. Your prompt should have changed with something like `root@9fa82673eb90:/myapp#`, indicating that the image container is running*
+```docker
+	root@9fa82673eb90:/myapp# java -jar snpEff/snpEff.jar -version 
+```
+*#comment: this verifies that the snpEff command is working inside the container*
+
+	$:ls snpEff/data 
+*#comment: With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe*
 
 ! **Note 3**: Each folder contains a unique file called `snpEffectPredictor.bin`
 
-To share and distribute you docker image, push your new docker image to dockerhub. You need a dockerhub account (Use Docker hub [documentation] (https://docs.docker.com/docker-hub/)). Then simply push your image on the distant dockerhub server, e.g.:
+To share and distribute your new docker image, push it to dockerhub. You need a dockerhub account (use Docker hub [documentation] (https://docs.docker.com/docker-hub/)). Then simply push your image on the distant dockerhub server, e.g.:
+
 	`docker push yourdockerhub_userid/snpeff:yourtag`
-	! **note 1**: the names of your local and your distant repositories should match. You can change the name you give to the local repository at the build step with `docker tag local-image:tagname yourdockerhub_userid/snpeff:tagname`
-	! **note 2**: to be able to push, ensure you are connected to dockerhub: `docker login -u user_id -p <password>` (Use --password-stdin instead of -p to be more secure)
+
+/!\ **note 1**: the names of your local and your distant repositories should match. You can change the name you give to the local repository at the build step with `docker tag local-image:tagname yourdockerhub_userid/snpeff:tagname`
+
+/!\ **note 2**: to be able to push, ensure you are connected to dockerhub: `docker login -u user_id -p <password>` (Use --password-stdin instead of -p to be more secure)
 
 
-Finally, edit the relevant profiles in the nextflow configuration file of your `Parallel-Variant-Calling` pipeline (in `script/nextflow.config`), to specify when you would like to use this new docker for snpEff. Change this: `container = "dockerhub_previous_userid/snpeff:latest"` to this: `container = "YOURACCOUNTNAME/snpeff:latest"` (use find ctrl+F and replace).
+Finally, edit the relevant profiles in the nextflow configuration file of your `Parallel-Variant-Calling` pipeline (in `script/nextflow.config`), to specify when you would like to use this new snpEff docker. In the code, replace `container = "dockerhub_previous_userid/snpeff:latest"` with: `container = "YOURACCOUNTNAME/snpeff:latest"` (use find ctrl+F and replace).
