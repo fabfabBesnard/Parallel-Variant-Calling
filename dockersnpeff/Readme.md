@@ -76,7 +76,7 @@ To share and distribute your new docker image, push it to dockerhub. You need a 
 
 	`docker push yourdockerhub_userid/snpeff:yourtag`
 
-/!\ **note 1**: the names of your local and your distant repositories should match. You can change the name you give to the local repository at the build step with `docker tag local-image:tagname yourdockerhub_userid/snpeff:tagname`
+/!\ **note 1**: the names of your local and your distant repositories should match. You can change the name you give to the local repository at the build step with: `docker tag local-image:tagname yourdockerhub_userid/snpeff:tagname`
 
 /!\ **note 2**: to be able to push, ensure you are connected to dockerhub: `docker login -u user_id -p <password>` (Use --password-stdin instead of -p to be more secure)
 
