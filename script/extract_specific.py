@@ -177,11 +177,13 @@ for ligneN in open(vcfname, 'r'):
             #go to next line
             continue
         else :
+            print("vcf accepte")
             add , samplerank = extractgoodvariant(ligne )
             if add :
                 for i in samplerank:
                     newline = create_new_variant_line( ligne , i)
                     dpsample = newline.split('\t')[-1].split(':')[2]
+                    print(dpsample)
                     if int(dpsample) < int(dp):
                         number_removed += 1
                         continue
@@ -192,6 +194,7 @@ for ligneN in open(vcfname, 'r'):
                         dicovariant[ samplelist[i] ] = [ firstline , newline ]
                     else:
                         dicovariant[ samplelist[i] ].append( newline )
+
 for filename in dicovariant:
     fichier = open(filename+"_"+vcfname.split("/")[-1], "w")
     fichier.write(vcfheader)

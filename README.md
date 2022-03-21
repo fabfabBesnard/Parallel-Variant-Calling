@@ -38,19 +38,41 @@ This pipeline has 3 major parts:
 
 <img src="img/Tech-Flowchart.jpg" alt="Flowchart" width="600"/>
 
+## Installation
+Just get the present git repository and execute the VariantCaller.nf script using Nextflow with the options and paramaters you need.
+Check the General Usage section to see how to execute correctly the script : https://github.com/Romumrn/Pipeline_variant_RDP#general-usage.
+
 ## Requirements
 
-### Software
-You will need to install first:
-- Nextflow ([How to install nextflow](https://www.nextflow.io/docs/latest/getstarted.html) in three little steps ! ).
+### NextFlow
+The pipeline script can be executed using nextflow. You can find all the information you need on the links below :
+https://www.nextflow.io/docs/latest/getstarted.html
 
 > note
 > 
 > As explained in the link, we recommand to place the nextflow binary executable file at a location accessible to your $PATH. Alternatively, you can permanently edit your $PATH. For example, in a bash shell, execute: `echo 'export PATH=$PATH:/path/to/nextflow'  >> ~/.bash_profile` (in a sh and ksh shell, `echo 'export PATH=$PATH:/path/to/nextflow' >> ~/.profile`)
 
-- Plotly (python3 -m pip install plotly --user)
+### Conda
+In order to let NextFlow use the virtual environnement for the pipeline with the docker_conda profile, you need to have anaconda. You can find all the information you need on the links below :
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#regular-installation
 
-- just git clone or copy this repository (not install or compilation required !)
+#### Linux
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html
+
+#### Windows
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html
+
+#### macOS
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html
+
+> note
+> 
+> Be sur that the NextFlow script is executed in a conda environment : The prompt is supposed to changed to (base) or the conda command is supposed to be recognize by your sheel.
+
+### Docker
+The second tool you need is Docker. You can find all the information you need on the links below :
+https://docs.docker.com/engine/install/
+
 
 ### Input data
 The sequencing data are typically **Illumina paired-end** sequencing fastq files generated from the genomic DNA of a unique strain.
@@ -59,12 +81,10 @@ Retained genomic variations are only **homozygous positions**. Both haploid and 
 The sequence of the reference genome of the organism is required at the *fasta* format, annotation file is required at the *gff* format.
 
 ## General Usage
-
 So far, we have implemented a single workflow called `VariantCaller.nf`. This pipeline can be called using the following command:
 
 ```
-nextflow run -profile [psmn,singularity] VariantCaller.nf \
--c file.config \
+nextflow run -profile [psmn,singularity,docker_conda] VariantCaller.nf \
 --reads "reads/*_{1,2}.fq.gz" \
 --genomefasta genome.fa \
 --annotation genome_annotation.gff \
@@ -91,24 +111,18 @@ tmux attach
 ## Input files and parameters
 
 ### Configuration file
-First define the config file of your analysis workflow.
-Copy and paste the default config file provided in `Pipeline_variant_RDP/script/VariantCaller.config` to your analysis folder.
+By default, the script use nextflow.config as confifuration file .
+This file needs to be in the same folder as VariantCaller.nf in order to work correctly.
 
 > note
 > 
->  Only two profiles are defined in the second part of the config file. The pipeline has been optimized to run in our lab computing cluster. Running in an other environment may require to create a new profile. Expertise in nextflow is preferable to edit the profile configurations.
+> Currently, if you execute the pipeline in local mode, use the docker_conda profile using the -profile option. This one use Conda and Docker to execute the pipeline in corrects environnements when it calls the differents softwares.
 
-The configuration file must be given to the command line with the -c option:
-- `-c` : + path to configuration file. The provided config file contains all default values and configurations for runs at our lab cluster ([PSMN](http://www.ens-lyon.fr/PSMN/doku.php)). 
-
-Most of the main paramters can be either directly configured at the beginning of this config file. Alternatively, they can be specified in the command line as explained below.
 
 ### Main parameters
 - `-profile` : + *profile id (string)*. the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
 
 - `VariantCaller.nf`: (nothing to add). The typical pipeline to be executed (only one available), located in scrpitdir
-
-- `--scriptdir` : + *path/to/directory*. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
 
 - `--genomefasta` : + *path/to/file*. Full path to the file of the reference genome (.fa or .fasta or .gz)
 
@@ -150,17 +164,18 @@ V300042688_L4_AE47136387-610,Mutant3
 
 - `--mindepth` : + numeric. (only for short indel and snp) Minimal cutoff threshold of depth (number of reads) for a variant per sample. Default: 4
 
+- `--sample` : + float between 0 and 1. Create a randomly a sample files from your reads data and the float you give and use them for the rest of the pipeline. Default: false
+
 - `-resume` : (nothing to add). With this flag, previously generated files from other analysis that are strictly identical to this new worflow will be retrieved from the cache, save computation time and ressource !
 
 - `with-report`: +path/to/destination. Output an html execution report of the workflow (https://www.nextflow.io/docs/latest/tracing.html#execution-report)
-
 
 ## Example 
 
 **Command line** : 
 
 ```
-./nextflow run script/VariantCaller.nf -c script/VariantCaller.config -profile psmn \
+./nextflow run script/VariantCaller.nf -profile docker_conda \
 --reads "/home/rmarin/Mydata/V30001743*{1,2}.fq.gz" \
 --genomefasta Mydata/Arabidopsis_thaliana.TAIR10.31.dna.toplevel.fa \
 --vqsrfile Mydata/1001genomes_snp-short-indel_only_ACGTN.vcf.gz \
@@ -200,6 +215,7 @@ params {
   outdir = 'results' //overwritten by command line argument
   minglobalqual = 200 // per cohort
   mindepth = 4 // per sample
+  sample = false
 
   help = false
 }

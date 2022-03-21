@@ -26,14 +26,14 @@ def main(tsvfile, vcffile):
     with open(tsvfile) as reader:
         # Parse file
         dictreader = _parse_tsvfile(reader)
-        print dictreader.fieldnames
+        print (dictreader.fieldnames)
 
         # Write out file
         _format_vcffile(dictreader, vcffile)
 
     # Quick output
     with open(vcffile) as reader:
-        print reader.read(1000)
+        print (reader.read(1000))
 
 
 def _parse_tsvfile(readable):

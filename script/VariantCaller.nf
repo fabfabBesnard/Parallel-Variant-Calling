@@ -82,7 +82,6 @@ if (params.help) {
 // Header log info
 log.info nfcoreHeader()
 def summary = [:]
-summary['scriptdir']             = params.scriptdir ?: 'Not supplied'
 summary['reads']                 = params.reads ?: 'Not supplied'
 summary['readsinbam']            = params.readsinbam ?: 'Not supplied'
 summary['genomefasta']           = params.genomefasta  ?: 'Not supplied'
@@ -95,6 +94,7 @@ summary['minglobalqual']         = params.minglobalqual
 summary['mindepth']              = params.mindepth
 summary['VQSR']                  = params.vqsrfile  ?: 'Not supplied'
 summary['Output']                = params.outdir
+summary['sample']                = params.sample  ?: 'Not supplied'
 log.info summary.collect { k,v -> "${k.padRight(20)}: $v" }.join("\n")
 log.info "-\033[2m-------------------------------------------------------------------------\033[0m-"
 
@@ -120,12 +120,12 @@ if (params.genomefasta) {
             fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
             process Create_genome_bwa_index {
-              label "bwa"
+              label "bwa1"
               tag "$fasta.simpleName"
-              publishDir "results/mapping/index/", mode: 'copy'
+              publishDir "${params.outdir}/mapping/index/", mode: 'copy'
 
               input:
-                file fasta  from fasta_file
+                file fasta from fasta_file
 
               output:
                 file "${fasta.baseName}.*" into index_files 
@@ -140,14 +140,70 @@ if (params.genomefasta) {
               }
 }
 
-if (params.reads) {
-        Channel
-            .fromFilePairs(params.reads, size:2)
-            .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
-            .set{ fastqgz }
-        Channel
-            .fromPath(params.reads)
-            .set{ fastqgz_fastqc}
+if (params.sample){ //mettre un décimal pour le float
+                                             
+  process Empty_sample_dir {
+    script :
+
+      """
+      #! python3
+      import os
+
+      if os.path.exists("${params.outdir}/sample"):
+        print("Sample Directory removed for a new one")
+        os.system("rm -rf ${params.outdir}/sample")
+      else :
+        print("No Sample Directory yet")
+
+      """
+  }
+    
+  //If option sample is true we read the sample option and create the channel for sampling process
+  if (params.reads) {
+    Channel
+      .fromFilePairs( params.reads, size:2 )
+      .ifEmpty{ error "Cannot find any file matching: ${params.reads}" }
+      .set { into_file }
+    //We read the sample value to get the correct part of the reads file
+    Channel
+      .value(params.sample)
+      .set {sample_var}
+
+    //fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
+
+    process Sampling {
+      tag "$pair_id"
+      publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
+
+      input :
+        set pair_id , file(reads_sample) from into_file //Switch de fromFilePair into variable pair_id and reads, reads contain the file and pair_id the pattern
+        val spl from sample_var
+
+      output :
+        set pair_id, file("${pair_id}*_sampled.fastq") into fastqgz
+        file("${pair_id}*_sampled.fastq") into fastqgz_fastqc
+        val pair_id into pair_id_for_breakdancer, pair_id_for_lumpy
+
+      script :
+
+      """
+      python3 $projectDir/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
+      """
+    }
+  }
+  /*Channel
+    .fromPath("${params.outdir}/sample/*" )
+    .set{ fastqgz_fastqc}*/
+}
+else {
+    //If option sample is false we use the reads file for the rest of the script
+    Channel
+        .fromFilePairs( params.reads, size:2 )
+        .set { fastqgz }
+    Channel
+        .fromPath(params.reads )
+        .set{ fastqgz_fastqc}
+}
 
 process Fastqc {
 label 'fastqc'
@@ -157,9 +213,10 @@ input:
 file read from fastqgz_fastqc
 
 output:
-file "*.{zip,html}" into fastq_repport_files
+file "*.{zip,html}" into fastq_report_files
 
 script:
+
 """
 fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
           ${read}
@@ -193,14 +250,14 @@ if (params.sampletable) {
 
         output:
         set sample_id, "${sample_id}.sam" into sam_files
-        set sample_id, "${sample_id}_bwa_report.txt" into mapping_repport_files
+        set sample_id, "${sample_id}_bwa_report.txt" into mapping_report_files
 
         script:
-        index_id = index[0].baseName
+        index_id = index[0].baseName // Point to Reference genome (See process bwa1 or "Create_genome_bwa_index")
         """
         bwa mem -t ${task.cpus} \
         -aM ${index_id} ${reads[0]} ${reads[1]} \
-        -o ${sample_id}.sam &> ${sample_id}_bwa_report.txt
+        > ${sample_id}.sam 2> ${sample_id}_bwa_report.txt
         """
       }
     }
@@ -215,7 +272,7 @@ if (params.sampletable) {
 
         output:
         set pair_id, "${pair_id}.sam" into sam_files
-        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
+        set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
 
         script:
         index_id = index[0].baseName
@@ -276,6 +333,22 @@ if (params.sampletable) {
 
       script:
       """
+      picard AddOrReplaceReadGroups \
+          -I ${bam_file} \
+          -O "${pair_id}.bam" \
+          -RGID ${pair_id} \
+          -RGLB lib1 \
+          -RGPL illumina \
+          -RGPU unit1 \
+          -RGSM ${pair_id}
+
+      picard MarkDuplicates \
+          -I "${pair_id}.bam" \
+          -O "${pair_id}_readGroup_MarkDuplicates.bam" \
+          -M "${pair_id}_marked_dup_metrics.txt"
+      """
+
+      /*"""
       PicardCommandLine AddOrReplaceReadGroups \
           I=${bam_file} \
           O="${pair_id}.bam" \
@@ -288,10 +361,10 @@ if (params.sampletable) {
           I="${pair_id}.bam" \
           O="${pair_id}_readGroup_MarkDuplicates.bam" \
           M="${pair_id}_marked_dup_metrics.txt"
-      """
+      """*/
     }
 
-  ///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 /* --                                                                     -- */
 /* --                   STEP   : ufilter and Get basics statistics        -- */
@@ -300,20 +373,21 @@ if (params.sampletable) {
 ///////////////////////////////////////////////////////////////////////////////
 
 process Filtering_and_Indexing_bam {
-  label 'samtools'
+  label 'samtools1'
   tag "$pair_id"
 
   input:
-  set pair_id, bam_RD_MD from bam_files_RG_MD
+  set pair_id, file(bam_RD_MD) from bam_files_RG_MD
 
   output:
   set pair_id, "${pair_id}_ufilter.bam", "${pair_id}_ufilter.bam.bai" into bam_files_RG_MD_filter,filtered_bam_pindel, bam2GATK , bam2GATK_SV, filtered_bam_files_breakdancer
   set pair_id, "${pair_id}.txt" into flagstat_files
   set pair_id, "${pair_id}_ufilter.bam.bai" into bam_index_samtools
-  set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_cnvnator, non_filtered_bam_files_breakdancer , non_filtered_bam_files_metasv
+  set pair_id, "${pair_id}.bam",  "${pair_id}.bam.bai" into non_filtered_bam_pindel , bam_for_lumpy_1,bam_for_lumpy_2, non_filtered_bam_files_breakdancer, non_filtered_bam_files_cnvnator, non_filtered_bam_files_metasv
   file "${pair_id}.bam" into bam_files_cov
 
   script:
+
   """
   samtools view -hu -F4 ${bam_RD_MD} | samtools view -hu -F256 - | samtools view -hb -f3 - > ${pair_id}_ufilter.bam
 	samtools flagstat ${pair_id}_ufilter.bam > ${pair_id}.txt
@@ -323,7 +397,6 @@ process Filtering_and_Indexing_bam {
   cp ${bam_RD_MD} ${pair_id}.bam
   samtools index ${pair_id}.bam ${pair_id}.bam.bai
   """
-}
 }
 
 if (params.readsinbam) {
@@ -429,7 +502,7 @@ process Create_ref_index {
 process Create_ref_dictionary {
   label 'gatk'
   tag "$fasta"
-  
+
   input:
   file fasta from  fasta_dict
 
@@ -437,9 +510,11 @@ process Create_ref_dictionary {
   file "*.dict" into fasta_dict_Variant_calling, fasta_dict_VQSR, fasta_dict_Structural_Variant_calling_GATK,fasta_dict_Structural_Variant_calling_GATK_prepare, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_Gvcf_to_vcf_after_bqsr , fasta_dict_extract_Extract_SNP_VQSR,fasta_dict_Extract_INDEL_VQSR,fasta_dict_extract_after_bqsr , fasta_dict_BaseRecalibrator , fasta_dict_Variant_calling_after_bqsr
 
   script:
+
   """
-  gatk  --java-options "-Xmx${task.memory.giga}g" CreateSequenceDictionary -R $fasta
+  gatk  --java-options "-Xmx30g" CreateSequenceDictionary -R $fasta
   """
+
 }
 
 //https://gatk.broadinstitute.org/hc/en-us/articles/360035890411-Calling-variants-on-cohorts-of-samples-using-the-HaplotypeCaller-in-GVCF-mode
@@ -644,6 +719,9 @@ process Extract_INDEL_and_filtering {
 ///////////////////////////////////////////////////////////////////////////////
  //https://gatk.broadinstitute.org/hc/en-us/articles/360051306591-ApplyVQSR
  //https://gatk.broadinstitute.org/hc/en-us/articles/360036510892-VariantRecalibrator
+
+//ext_spec = Channel.fromPath("$params.scriptdir/extract_specific.py")
+
 if (params.vqsrfile) {
 
   Channel
@@ -754,7 +832,6 @@ if (params.vqsrfile) {
         publishDir "${params.outdir}/variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
         file vcf from indelVQSR.concat(snpVQSR)
@@ -766,7 +843,7 @@ if (params.vqsrfile) {
 
         script:
         """
-        $scriptpath/extract_specific.py $vcf $qual $dpmin
+        $ext_spec $vcf $qual $dpmin
         """
     }
 
@@ -778,7 +855,6 @@ else{
         publishDir "${params.outdir}/variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         val qual from params.minglobalqual
         val dpmin from params.mindepth
         file vcf from snp_files.concat(indel_files)
@@ -789,8 +865,9 @@ else{
         file "nb_removed" into removed
 
         script:
+
         """
-        $scriptpath/extract_specific.py $vcf $qual $dpmin
+        python $projectDir/extract_specific.py $vcf $qual $dpmin
         """
     }
 }
@@ -803,30 +880,44 @@ else{
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-process Structural_Variant_calling_breakdancer {
+//file1 = Channel.fromPath(params.reads)
+//file2 = Channel.fromPath(params.reads)
+process Structural_Variant_calling_breakdancer_step1 {
   label 'breakdancer'
   tag "${pair_id}"
-  publishDir "${params.outdir}/structural_variant/", mode: 'copy'
+  publishDir "${params.outdir}/structural_variant/"
 
   input:
-  set pair_id, bam , bai from non_filtered_bam_files_breakdancer
-  val scriptpath from params.scriptdir
+  set pair_id, "${pair_id}.bam", "${pair_id}.bam.bai" from non_filtered_bam_files_breakdancer
 
   output:
-  set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files , breackdancer_metasv
+  set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files, breackdancer_metasv, breakdancer_step2
   file "${pair_id}_config.cfg" into config_breakdancer
-  set pair_id, "breakdancer_${pair_id}.vcf" into breakdancer_vcf
 
   script:
-  //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon 
-  """
+  //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon
 
-  bam2cfg $bam -o ${pair_id}_config.cfg
+  """
+  bam2cfg ${pair_id}.bam -o ${pair_id}_config.cfg
   
   breakdancer-max ${pair_id}_config.cfg > breakdancer_${pair_id}.ctx
+  """
+}
 
+process Structural_Variant_calling_breakdancer_step2 {
+  tag "${pair_id}"
+  publishDir "${params.outdir}/structural_variant/"
+
+  input :
+  set pair_id, file("breakdancer_${pair_id}.ctx") from breakdancer_step2
+
+  output :
+  set pair_id, "breakdancer_${pair_id}.vcf" into breakdancer_vcf
+
+  script :
+  """
   # Transform ctx into vcf
-  python $scriptpath/breakdancer2vcf.py -i 'breakdancer_${pair_id}.ctx' -o 'breakdancer_${pair_id}.vcf'
+  python $projectDir/breakdancer2vcf.py -i breakdancer_${pair_id}.ctx -o 'breakdancer_${pair_id}.vcf'
   """
 }
 
@@ -872,34 +963,51 @@ process Structural_Variant_calling_pindel {
 }
 
 //https://github.com/arq5x/lumpy-sv
-process Structural_Variant_calling_Lumpy {
-  label 'lumpy'
+
+process Structural_Variant_calling_Lumpy_step1 {
   tag "${pair_id}"
-  publishDir "${params.outdir}/structural_variant/", mode: 'copy'
+  publishDir "${params.outdir}/structural_variant/"
 
   input:
-  val scriptpath from params.scriptdir
-  set pair_id , bam , bai from bam_for_lumpy_2
+  set pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") from bam_for_lumpy_2
 
   output:
-  file "Lumpy_${pair_id}.vcf" into lumpy_out
+  set pair_id, file("${pair_id}_sample.discordants.bam"), file("${pair_id}_sample.splitters.bam"), file("${pair_id}.bam") into lumpy_step2
 
   script:
   """
   # Extract the discordant paired-end alignments.
-  samtools view -b -F 1294 $bam > sample.discordants.unsorted.bam
+  samtools view -b -F 1294 ${pair_id}.bam > sample.discordants.unsorted.bam
 
-  samtools view -h $bam | $scriptpath/extractSplitReads_BwaMem -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
+  samtools view -h ${pair_id}.bam | python $projectDir/extractSplitReads_BwaMem.py -i stdin | samtools view -Sb - > sample.splitters.unsorted.bam
   
   # Sort both alignments
-  samtools sort sample.discordants.unsorted.bam -o sample.discordants.bam
-  samtools sort sample.splitters.unsorted.bam -o sample.splitters.bam
+  samtools sort sample.discordants.unsorted.bam -o ${pair_id}_sample.discordants.bam
+  samtools sort sample.splitters.unsorted.bam -o ${pair_id}_sample.splitters.bam
+  """
 
+}
+
+process Structural_Variant_calling_Lumpy_step2 {
+  label 'lumpy'
+  tag "${pair_id}"
+  publishDir "${params.outdir}/structural_variant/"
+
+  input:
+  set pair_id, file("${pair_id}_sample.discordants.bam"), file("${pair_id}_sample.splitters.bam"), file("${pair_id}.bam") from lumpy_step2
+  
+  output:
+  file "Lumpy_${pair_id}.vcf" into lumpy_out
+  
+
+  script:
+
+  """
   #Run Lumpy in express mode
   lumpyexpress \
-    -B $bam \
-    -S sample.splitters.bam \
-    -D sample.discordants.bam \
+    -B ${pair_id}.bam \
+    -S ${pair_id}_sample.splitters.bam\
+    -D ${pair_id}_sample.discordants.bam\
     -o Lumpy_${pair_id}.vcf
   """
 }
@@ -992,7 +1100,6 @@ process Find_specific_SV{
         publishDir "${params.outdir}/structural_variant/", mode: 'copy'
 
         input:
-        val scriptpath from params.scriptdir
         file SV from vcfmetasv_withnonspecific.collect()
 
         output:
@@ -1000,7 +1107,7 @@ process Find_specific_SV{
 
         script:
         """
-        $scriptpath/extract_specific_SV.py
+        python $projectDir/extract_specific_SV.py
         """
 }
 
@@ -1135,7 +1242,7 @@ else{
         echo "#Physcomitrium (Physcomitrella) patens (${fa.baseName}, 11/03/2021)" >> snpEff.config
         echo "${fa.baseName}.genome : Physcomitrium patens"  >> snpEff.config
 
-        snpeff build -gff3 -c snpEff.config -v ${fa.baseName}
+        snpEff build -gff3 -c snpEff.config -v ${fa.baseName}
         """
         }
 
@@ -1148,7 +1255,7 @@ else{
         input:
         file configfile from configsnpeff.collect()
         file fa from fasta_Snpeff_variant_effect.collect()
-        file file_vcf from good_variant.flatten().concat(vcfmetasv)
+        file file_vcf from good_variant.flatten()//.concat(vcfmetasv)
         file directorysnpeff from snpfile.collect()
 
         output:
@@ -1158,6 +1265,9 @@ else{
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
+
+        println file_vcf
+        
         """
         snpeff ${fa.baseName} \
         -c $configfile \
@@ -1210,6 +1320,8 @@ process Generate_custom_summary {
       file "*_mqc*" into to_multiqc
 
       script:
+      //fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
+
       """
 #! python3
 import plotly.express as px
@@ -1267,10 +1379,22 @@ for file_temp in files:
 
     #for variant impact
     df_resume = df.groupby('ANN[*].IMPACT').count()['DP']
-    high = df_resume['HIGH']
-    moderate = df_resume['MODERATE']
-    low = df_resume['LOW']
-    modifier = df_resume['MODIFIER']
+    try :
+      high = df_resume['HIGH']
+    except KeyError :
+      high = 0
+    try :
+      moderate = df_resume['MODERATE']
+    except KeyError :
+      moderate = 0
+    try :
+      low = df_resume['LOW']
+    except KeyError :
+      low = 0
+    try :
+      modifier = df_resume['MODIFIER']
+    except KeyError :
+      modifier = 0
     fimpact.write( '{}\\t{}\\t{}\\t{}\\t{}\\n'.format(file_temp.split('.')[0],high,moderate,low,modifier) )
 
     #for variant type info
@@ -1364,9 +1488,9 @@ else{
      publishDir "${params.outdir}/multiQC", mode: 'copy'
 
      input:
-     file report_fastqc from fastq_repport_files.collect()
+     file report_fastqc from fastq_report_files.collect()
      file report_flagstat from flagstat_files.collect()
-     file report_mapping from mapping_repport_files.collect()
+     file report_mapping from mapping_report_files.collect()
      file report_picard from picardmetric_files.collect()
      //file report_gatk from gatkmetric_files.collect()
      file report_custom from to_multiqc.collect()
