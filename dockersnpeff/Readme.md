@@ -19,7 +19,7 @@ Nicotiana_attenuata                                         	Nicotiana_attenuata
 
 ```
 
-Once you have found an annotation build for your organism, carefully note the name of this organism in the snpeff database (warning: name could be different, you should always take the first name).
+Once you have found an annotation build for your organism, carefully note the name of this organism in the snpEff database (warning: name could be different, you should always take the first name).
 
 ```sh
 Database_name                                         	Species_name                                         	          	                              	https://snpeff.blob.core.windows.net/databases/v5_0/.....zip
@@ -46,9 +46,39 @@ RUN cd snpEff && \
 	java -jar snpEff.jar download Nicotiana_attenuata
 ```
 
-Save and create the docker with this command line (you should be in the docker directory) `docker build. -T snpeff: latest `
+Provided that Docker (tested for >v20.10.3) is installed on your system, build and save the docker image with this command line:
+```
+docker build -t snpeff:latest . 
+```
+*#comment: this command should be run in this 'dockersnpeff' directory, so that by default Dockerfile is sourced there*
+
+/!\ **note 1**: do not worry if the terminal prints `ERROR while connecting to ...` (and then mentioning the species database): the database is correctly downloaded however.
+
+/!\ **note 2**: verify that the image has the right content by mounting the container and exploring its content interactively, using the following commands:
+
+	~$:docker image list
+
+*#comment: the new image you just built should appear in the list*
+
+	~$:docker run -it snpeff:latest bash 
+*#comment: if needed, replace snpeff:latest by the correct image_name:tag. Your prompt should have changed with something like `root@9fa82673eb90:/myapp#`, indicating that the image container is running*
+```docker
+	root@9fa82673eb90:/myapp# snpeff -version 
+```
+*#comment: this verifies that the snpEff command is working inside the container and that the snpeff executable has been successfully added to the $PATH inside the docker*
+
+	$:ls snpEff/data 
+*#comment: With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe*
+
+/!\ **Note 3**: Each folder contains a unique file called `snpEffectPredictor.bin`
+
+To share and distribute your new docker image, push it to dockerhub. You need a dockerhub account (use Docker hub [documentation] (https://docs.docker.com/docker-hub/)). Then simply push your image on the distant dockerhub server, e.g.:
+
+	`docker push yourdockerhub_userid/snpeff:yourtag`
+
+/!\ **note 1**: the names of your local and your distant repositories should match. You can change the name you give to the local repository at the build step with: `docker tag local-image:tagname yourdockerhub_userid/snpeff:tagname`
+
+/!\ **note 2**: to be able to push, ensure you are connected to dockerhub: `docker login -u user_id -p <password>` (Use --password-stdin instead of -p to be more secure)
 
 
-Finally, you can create your dockerhub account and push your container to dockerhub. (Use Docker hub [documentation] (https://docs.docker.com/docker-hub/))
-Modify configuration file of your pipeline:
-Change this `container = "romudock/snpeff: latest"` to this `container = "YOURACCOUNTNAME/snpeff: latest"` (use find ctrl+F and replace)
+Finally, edit the relevant profiles in the nextflow configuration file of your `Parallel-Variant-Calling` pipeline (in `script/nextflow.config`), to specify when you would like to use this new snpEff docker. In the code, replace `container = "dockerhub_previous_userid/snpeff:latest"` with: `container = "YOURACCOUNTNAME/snpeff:latest"` (use find ctrl+F and replace).
