@@ -194,16 +194,19 @@ for ligneN in open(vcfname, 'r'):
                         dicovariant[ samplelist[i] ] = [ firstline , newline ]
                     else:
                         dicovariant[ samplelist[i] ].append( newline )
-
-for filename in dicovariant:
-    fichier = open(filename+"_"+vcfname.split("/")[-1], "w")
-    fichier.write(vcfheader)
-    for i in dicovariant[filename]:
-        if i.endswith("\n"):
-            fichier.write(i)
-        else:
-            fichier.write(i + '\n')
+if not dicovariant:
+    fichier = open("empty_"+vcfname.split("/")[-1], "w")
     fichier.close()
+else:
+    for filename in dicovariant:
+        fichier = open(filename+"_"+vcfname.split("/")[-1], "w")
+        fichier.write(vcfheader)
+        for i in dicovariant[filename]:
+            if i.endswith("\n"):
+                fichier.write(i)
+            else:
+                fichier.write(i + '\n')
+        fichier.close()
 
 fstat = open( "nb_removed",'w')
 fstat.write("number_removed\n")
