@@ -233,6 +233,7 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 ///////////////////////////////////////////////////////////////////////////////
 
 //Change les noms des pair_id avec les noms des echantillons directement dans la premiere channel
+<<<<<<< HEAD
 /*if (params.sampletable) {
       Channel
         .fromPath( params.sampletable )
@@ -262,6 +263,8 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
       }
     }
     else{*/
+=======
+>>>>>>> debut du multiple merge
       process Mapping_reads {
         label 'bwa'
         tag "$pair_id"
@@ -271,8 +274,13 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
         file index from index_files.collect()
 
         output:
+<<<<<<< HEAD
         set pair_id, "${pair_id}.sam" into sam_files
         set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
+=======
+        set pair_id, "${pair_id}.sam" into sam_files, sam_files_test
+        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
+>>>>>>> debut du multiple merge
 
         script:
         index_id = index[0].baseName
@@ -320,6 +328,7 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 
     //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
     if (params.sampletable){
+<<<<<<< HEAD
 
       Channel
         .fromPath( params.sampletable )
@@ -365,6 +374,53 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
         set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
         set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
 
+=======
+
+      Channel
+        .fromPath( params.sampletable )
+        .splitText()
+        .splitCsv()
+        .groupTuple(by:1)
+        .view()
+        .set{fastqsamplename}
+
+      process Add_ReadGroup {
+        label 'picardtools'
+        tag "$pair_id"
+      
+        input:
+        set pair_id, bam_file from bam_files
+
+        output:
+        file "${pair_id}.bam" into bam_files_RG
+
+        script:
+
+          """
+          picard AddOrReplaceReadGroups \
+          -I ${bam_file} \
+          -O "${pair_id}.bam" \
+          -RGID ${pair_id} \
+          -RGLB lib1 \
+          -RGPL illumina \
+          -RGPU unit1 \
+          -RGSM ${pair_id}
+          """
+      }
+
+      process MarkDuplicates_and_Merge{
+        label 'picardtools'
+        tag "$sample_id"
+
+        input:
+        set pair_id, val(sample_id) from fastqsamplename
+        file bam_file from bam_files_RG.collect()
+
+        output:
+        set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
+        set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
+
+>>>>>>> debut du multiple merge
         script:
         bash_array = ""
         for (id in pair_id){
