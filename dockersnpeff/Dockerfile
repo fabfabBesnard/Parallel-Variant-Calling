@@ -26,6 +26,6 @@ RUN cd snpEff && \
 	java -jar snpEff.jar download Drosophila_melanogaster &&\
 	java -jar snpEff.jar download Schizosaccharomyces_pombe
 
-RUN cp -r snpEff/scripts/* snpEff/exec/.
+RUN cp -r /myapp/snpEff/scripts/* /myapp/snpEff/exec/.
  
-ENV PATH=$PATH:/snpEff/exec/
+ENV PATH=$PATH:/myapp/snpEff/exec/
