@@ -6,15 +6,13 @@ def helpMessage() {
     Usage:
 
     The typical command for running the pipeline is as follows:
-      ./nextflow run script/VariantCaller.nf -c data/MYvariantCaller.config --reads "/data/reads/*_{1,2}.fq.gz" --genomefasta data/Physcomitrella_patens.Phypa_V3.dna.toplevel.fa --sampletable data/table -profile psmn -resume --annotationname Physcomitrella_patens --outdir analyse_mousse
+      ./nextflow run script/VariantCaller.nf -profile docker_conda--reads "/data/reads/*_{1,2}.fq.gz" --genomefasta data/Physcomitrella_patens.Phypa_V3.dna.toplevel.fa --sampletable data/table -profile psmn -resume --annotationname Physcomitrella_patens --outdir analyse_mousse
     (Please avoid to use dot in file name, use underscore instead.)
 
     You can provide these following argument in the command line or you can modify the configuration file. 
     
     Required arguments:
         - `-profile` : + profile id (string). the profile adapted to your computing environment, deined in the config file (available: psmn or singularity)
-
-        - `--scriptdir` : + path/to/directory. Path to the directory that contains the pipeline scripts. For example /Pipeline_variant_RDP/script'
 
         - `--genomefasta` : + path/to/file. Full path to the file of the reference genome (.fa or .fasta or .gz)
 
@@ -44,6 +42,8 @@ def helpMessage() {
         - `--minglobalqual` : + numeric. (only for short indel and snp) Minimal cutoff threshold of global quality per variant (for all sample). Default: 200
 
         - `--mindepth` : + numeric. (only for short indel and snp) Minimal cutoff threshold of depth (number of reads) for a variant per sample. Default: 4
+
+        - `--sample` : + float between 0 and 1. Create a randomly a sample files from your reads data and the float you give and use them for the rest of the pipeline. Default: false
 
         - `-resume` : (nothing to add). With this flag, previously generated files from other analysis that are strictly identical to this new worflow will be retrieved from the cache, save computation time and ressource !
 
@@ -233,6 +233,7 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 ///////////////////////////////////////////////////////////////////////////////
 
 //Change les noms des pair_id avec les noms des echantillons directement dans la premiere channel
+<<<<<<< HEAD
 if (params.sampletable) {
       Channel
         .fromPath( params.sampletable )
@@ -262,6 +263,8 @@ if (params.sampletable) {
       }
     }
     else{
+=======
+>>>>>>> debut du multiple merge
       process Mapping_reads {
         label 'bwa'
         tag "$pair_id"
@@ -271,8 +274,13 @@ if (params.sampletable) {
         file index from index_files.collect()
 
         output:
+<<<<<<< HEAD
         set pair_id, "${pair_id}.sam" into sam_files
         set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
+=======
+        set pair_id, "${pair_id}.sam" into sam_files, sam_files_test
+        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
+>>>>>>> debut du multiple merge
 
         script:
         index_id = index[0].baseName
@@ -282,7 +290,6 @@ if (params.sampletable) {
         -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
         """
       }
-    }
 
     ///////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////
@@ -292,22 +299,23 @@ if (params.sampletable) {
     ///////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////
 
+  
     process Sam_to_bam {
-        label 'samtools'
-        tag "$pair_id"
-        publishDir "${params.outdir}/mapping", mode: 'copy'
+      label 'samtools'
+      tag "$pair_id"
+      publishDir "${params.outdir}/mapping", mode: 'copy'
 
-        input:
-        set pair_id, "${pair_id}.sam" from sam_files
+      input:
+      set pair_id, "${pair_id}.sam" from sam_files
 
-        output:
-        set pair_id, "${pair_id}.bam" into bam_files
+      output:
+      set pair_id, "${pair_id}.bam" into bam_files
 
-        script:
-        """
-        samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
-        """
-      }
+      script:
+      """
+      samtools view -buS ${pair_id}.sam | samtools sort - -o ${pair_id}.bam
+      """
+    }
 
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -319,7 +327,68 @@ if (params.sampletable) {
     ///////////////////////////////////////////////////////////////////////////////
 
     //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
+    if (params.sampletable){
 
+      Channel
+        .fromPath( params.sampletable )
+        .splitText()
+        .splitCsv()
+        .groupTuple(by:1)
+        .view()
+        .set{fastqsamplename}
+
+      process Add_ReadGroup {
+        label 'picardtools'
+        tag "$pair_id"
+      
+        input:
+        set pair_id, bam_file from bam_files
+
+        output:
+        file "${pair_id}.bam" into bam_files_RG
+
+        script:
+
+          """
+          picard AddOrReplaceReadGroups \
+          -I ${bam_file} \
+          -O "${pair_id}.bam" \
+          -RGID ${pair_id} \
+          -RGLB lib1 \
+          -RGPL illumina \
+          -RGPU unit1 \
+          -RGSM ${pair_id}
+          """
+      }
+
+      process MarkDuplicates_and_Merge{
+        label 'picardtools'
+        tag "$sample_id"
+
+        input:
+        set pair_id, val(sample_id) from fastqsamplename
+        file bam_file from bam_files_RG.collect()
+
+        output:
+        set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
+        set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
+
+        script:
+        bash_array = ""
+        for (id in pair_id){
+          bash_array = "-I "+id+".bam "+bash_array
+        }
+        bash_array = bash_array.substring(0, bash_array.length() - 1)
+        """
+        picard MarkDuplicates \
+          $bash_array \
+          -O ${sample_id}_readGroup_MarkDuplicates.bam \
+          -M ${sample_id}_marked_dup_metrics.txt
+        """
+      }
+
+    }
+    else{
     process Add_ReadGroup_and_MarkDuplicates_bam {
       label 'picardtools'
       tag "$pair_id"
@@ -363,6 +432,7 @@ if (params.sampletable) {
           M="${pair_id}_marked_dup_metrics.txt"
       """*/
     }
+  }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -852,6 +922,7 @@ else{
   process Extract_specific_variant{
         // No label ! Launch with PSMN configuration
         tag "$vcf"
+        //errorStrategy { task.exitStatus == 0 ? 'terminate' : 'ignore' }
         publishDir "${params.outdir}/variant/", mode: 'copy'
 
         input:
@@ -860,17 +931,27 @@ else{
         file vcf from snp_files.concat(indel_files)
 
         output:
-        file "*.vcf" into good_variant , good_variant_for_mqc
+        file "*.vcf" into good_variant, good_variant_for_mqc, variant_check
         file "*_mqc*" into bar_multiqc
         file "nb_removed" into removed
 
         script:
-
+        println("${vcf}")
         """
         python $projectDir/extract_specific.py $vcf $qual $dpmin
+
+        if [ -e .vcf ]
+        then
+          echo "vcf found"
+        else
+          echo "vcf not found"
+        fi
         """
     }
 }
+
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
