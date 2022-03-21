@@ -50,7 +50,7 @@ Provided that Docker (tested for >v20.10.3) is installed on your system, build a
 ```
 docker build -t snpeff:latest . 
 ```
-*#comment: # should be run in this 'dockersnpeff' directory, so that by default Dockerfile is sourced here*
+*#comment: this command should be run in this 'dockersnpeff' directory, so that by default Dockerfile is sourced there*
 
 /!\ **note 1**: do not worry if the terminal prints `ERROR while connecting to ...` (and then mentioning the species database): the database is correctly downloaded however.
 
@@ -63,9 +63,9 @@ docker build -t snpeff:latest .
 	~$:docker run -it snpeff:latest bash 
 *#comment: if needed, replace snpeff:latest by the correct image_name:tag. Your prompt should have changed with something like `root@9fa82673eb90:/myapp#`, indicating that the image container is running*
 ```docker
-	root@9fa82673eb90:/myapp# java -jar snpEff/snpEff.jar -version 
+	root@9fa82673eb90:/myapp# snpeff -version 
 ```
-*#comment: this verifies that the snpEff command is working inside the container*
+*#comment: this verifies that the snpEff command is working inside the container and that the snpeff executable has been successfully added to the $PATH inside the docker*
 
 	$:ls snpEff/data 
 *#comment: With the database downloads listed above, each species should have a dedicated folder, so the result should display this folder list: Arabidopsis_thaliana, Caenorhabditis_elegans, Physcomitrella_patens, Saccharomyces_cerevisiae, Zea_mays Caenorhabditis_briggsae, Drosophila_melanogaster, Populus_trichocarpa, Schizosaccharomyces_pombe*
