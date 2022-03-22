@@ -333,6 +333,14 @@ if (params.sampletable) {
         .fromPath( params.sampletable )
         .splitText()
         .splitCsv()
+        .view()
+        .set{sampletableid}
+
+      Channel
+        .fromPath( params.sampletable )
+        .splitText()
+        .splitCsv()
+        .map{ [it[0], it[1]] }
         .groupTuple(by:1)
         .view()
         .set{fastqsamplename}
@@ -343,6 +351,7 @@ if (params.sampletable) {
       
         input:
         set pair_id, bam_file from bam_files
+        set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
 
         output:
         file "${pair_id}.bam" into bam_files_RG
@@ -353,11 +362,11 @@ if (params.sampletable) {
           picard AddOrReplaceReadGroups \
           -I ${bam_file} \
           -O "${pair_id}.bam" \
-          -RGID ${pair_id} \
-          -RGLB lib1 \
-          -RGPL illumina \
-          -RGPU unit1 \
-          -RGSM ${pair_id}
+          -RGID ${rgid} \
+          -RGLB  ${rglb} \
+          -RGPL ${rgpl} \
+          -RGPU ${rgpu} \
+          -RGSM ${samplename}
           """
       }
 
