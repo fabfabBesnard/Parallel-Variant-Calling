@@ -333,7 +333,6 @@ if (params.sampletable) {
         .fromPath( params.sampletable )
         .splitText()
         .splitCsv()
-        .view()
         .set{sampletableid}
 
       Channel
@@ -342,7 +341,6 @@ if (params.sampletable) {
         .splitCsv()
         .map{ [it[0], it[1]] }
         .groupTuple(by:1)
-        .view()
         .set{fastqsamplename}
 
       process Add_ReadGroup {
