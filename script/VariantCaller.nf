@@ -296,7 +296,6 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
         .fromPath( params.sampletable )
         .splitText()
         .splitCsv()
-        .view()
         .set{sampletableid}
 
       Channel
@@ -305,7 +304,6 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
         .splitCsv()
         .map{ [it[0], it[1]] }
         .groupTuple(by:1)
-        .view()
         .set{fastqsamplename}
 
       process Add_ReadGroup {
