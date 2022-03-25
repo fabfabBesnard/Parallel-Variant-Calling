@@ -331,16 +331,15 @@ if (params.sampletable) {
 
       Channel
         .fromPath( params.sampletable )
-        .splitText()
-        .splitCsv()
+        .splitCsv(skip: 1, sep : '\t')
         .set{sampletableid}
 
       Channel
         .fromPath( params.sampletable )
-        .splitText()
-        .splitCsv()
+        .splitCsv(skip: 1, sep : '\t')
         .map{ [it[0], it[1]] }
         .groupTuple(by:1)
+        .view()
         .set{fastqsamplename}
 
       process Add_ReadGroup {
