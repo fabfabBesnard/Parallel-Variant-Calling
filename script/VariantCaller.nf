@@ -233,8 +233,7 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 ///////////////////////////////////////////////////////////////////////////////
 
 //Change les noms des pair_id avec les noms des echantillons directement dans la premiere channel
-<<<<<<< HEAD
-if (params.sampletable) {
+/*if (params.sampletable) {
       Channel
         .fromPath( params.sampletable )
         .splitCsv( skip: 0)
@@ -262,9 +261,7 @@ if (params.sampletable) {
         """
       }
     }
-    else{
-=======
->>>>>>> debut du multiple merge
+    else{*/
       process Mapping_reads {
         label 'bwa'
         tag "$pair_id"
@@ -274,13 +271,8 @@ if (params.sampletable) {
         file index from index_files.collect()
 
         output:
-<<<<<<< HEAD
         set pair_id, "${pair_id}.sam" into sam_files
         set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
-=======
-        set pair_id, "${pair_id}.sam" into sam_files, sam_files_test
-        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
->>>>>>> debut du multiple merge
 
         script:
         index_id = index[0].baseName
@@ -331,13 +323,8 @@ if (params.sampletable) {
 
       Channel
         .fromPath( params.sampletable )
-        .splitCsv(skip: 1, sep : '\t')
-        .set{sampletableid}
-
-      Channel
-        .fromPath( params.sampletable )
-        .splitCsv(skip: 1, sep : '\t')
-        .map{ [it[0], it[1]] }
+        .splitText()
+        .splitCsv()
         .groupTuple(by:1)
         .view()
         .set{fastqsamplename}
@@ -348,7 +335,6 @@ if (params.sampletable) {
       
         input:
         set pair_id, bam_file from bam_files
-        set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
 
         output:
         file "${pair_id}.bam" into bam_files_RG
@@ -359,11 +345,11 @@ if (params.sampletable) {
           picard AddOrReplaceReadGroups \
           -I ${bam_file} \
           -O "${pair_id}.bam" \
-          -RGID ${rgid} \
-          -RGLB  ${rglb} \
-          -RGPL ${rgpl} \
-          -RGPU ${rgpu} \
-          -RGSM ${samplename}
+          -RGID ${pair_id} \
+          -RGLB lib1 \
+          -RGPL illumina \
+          -RGPU unit1 \
+          -RGSM ${pair_id}
           """
       }
 
