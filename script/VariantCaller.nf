@@ -232,64 +232,27 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//Change les noms des pair_id avec les noms des echantillons directement dans la premiere channel
-<<<<<<< HEAD
-/*if (params.sampletable) {
-      Channel
-        .fromPath( params.sampletable )
-        .splitCsv( skip: 0)
-        .join(fastqgz)
-        .set{fastqsamplename}
 
-      process Mapping_reads_and_add_sample_name {
-        label 'bwa'
-        tag "$sample_id"
+process Mapping_reads {
+  label 'bwa'
+  tag "$pair_id"
 
-        input:
-        set pair_id,sample_id, file(reads) from fastqsamplename
-        file index from index_files.collect()
+  input:
+  set pair_id,file(reads) from fastqgz
+  file index from index_files.collect()
 
-        output:
-        set sample_id, "${sample_id}.sam" into sam_files
-        set sample_id, "${sample_id}_bwa_report.txt" into mapping_report_files
+  output:
+  set pair_id, "${pair_id}.sam" into sam_files
+  set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
 
-        script:
-        index_id = index[0].baseName // Point to Reference genome (See process bwa1 or "Create_genome_bwa_index")
-        """
-        bwa mem -t ${task.cpus} \
-        -aM ${index_id} ${reads[0]} ${reads[1]} \
-        > ${sample_id}.sam 2> ${sample_id}_bwa_report.txt
-        """
-      }
-    }
-    else{*/
-=======
->>>>>>> debut du multiple merge
-      process Mapping_reads {
-        label 'bwa'
-        tag "$pair_id"
-
-        input:
-        set pair_id,file(reads) from fastqgz
-        file index from index_files.collect()
-
-        output:
-<<<<<<< HEAD
-        set pair_id, "${pair_id}.sam" into sam_files
-        set pair_id, "${pair_id}_bwa_report.txt" into mapping_report_files
-=======
-        set pair_id, "${pair_id}.sam" into sam_files, sam_files_test
-        set pair_id, "${pair_id}_bwa_report.txt" into mapping_repport_files
->>>>>>> debut du multiple merge
-
-        script:
-        index_id = index[0].baseName
-        """
-        bwa mem -t ${task.cpus} \
-        -aM ${index_id} ${reads[0]} ${reads[1]} \
-        -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
-        """
-      }
+  script:
+  index_id = index[0].baseName
+  """
+    bwa mem -t ${task.cpus} \
+    -aM ${index_id} ${reads[0]} ${reads[1]} \
+    -o ${pair_id}.sam &> ${pair_id}_bwa_report.txt
+  """
+  }
 
     ///////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////
@@ -328,66 +291,12 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
 
     //https://gatk.broadinstitute.org/hc/en-us/articles/360037052812-MarkDuplicates-Picard-
     if (params.sampletable){
-<<<<<<< HEAD
-
-      Channel
-        .fromPath( params.sampletable )
-        .splitCsv(skip: 1, sep : '\t')
-        .set{sampletableid}
-
-      Channel
-        .fromPath( params.sampletable )
-        .splitCsv(skip: 1, sep : '\t')
-        .map{ [it[0], it[1]] }
-        .groupTuple(by:1)
-        .view()
-        .set{fastqsamplename}
-
-      process Add_ReadGroup {
-        label 'picardtools'
-        tag "$pair_id"
-      
-        input:
-        set pair_id, bam_file from bam_files
-        set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
-
-        output:
-        file "${pair_id}.bam" into bam_files_RG
-
-        script:
-
-          """
-          picard AddOrReplaceReadGroups \
-          -I ${bam_file} \
-          -O "${pair_id}.bam" \
-          -RGID ${rgid} \
-          -RGLB  ${rglb} \
-          -RGPL ${rgpl} \
-          -RGPU ${rgpu} \
-          -RGSM ${samplename}
-          """
-      }
-
-      process MarkDuplicates_and_Merge{
-        label 'picardtools'
-        tag "$sample_id"
-
-        input:
-        set pair_id, val(sample_id) from fastqsamplename
-        file bam_file from bam_files_RG.collect()
-
-        output:
-        set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
-        set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
-
-=======
 
       Channel
         .fromPath( params.sampletable )
         .splitText()
         .splitCsv()
         .groupTuple(by:1)
-        .view()
         .set{fastqsamplename}
 
       process Add_ReadGroup {
@@ -426,7 +335,6 @@ fastqc --quiet --threads ${task.cpus} --format fastq --outdir ./ \
         set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
         set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
 
->>>>>>> debut du multiple merge
         script:
         bash_array = ""
         for (id in pair_id){
