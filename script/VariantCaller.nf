@@ -294,9 +294,15 @@ process Mapping_reads {
 
       Channel
         .fromPath( params.sampletable )
-        .splitText()
-        .splitCsv()
+        .splitCsv(skip: 1, sep : '\t')
+        .set{sampletableid}
+
+      Channel
+        .fromPath( params.sampletable )
+        .splitCsv(skip: 1, sep : '\t')
+        .map{ [it[0], it[1]] }
         .groupTuple(by:1)
+        .view()
         .set{fastqsamplename}
 
       process Add_ReadGroup {
@@ -305,6 +311,7 @@ process Mapping_reads {
       
         input:
         set pair_id, bam_file from bam_files
+        set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
 
         output:
         file "${pair_id}.bam" into bam_files_RG
@@ -315,11 +322,11 @@ process Mapping_reads {
           picard AddOrReplaceReadGroups \
           -I ${bam_file} \
           -O "${pair_id}.bam" \
-          -RGID ${pair_id} \
-          -RGLB lib1 \
-          -RGPL illumina \
-          -RGPU unit1 \
-          -RGSM ${pair_id}
+          -RGID ${rgid} \
+          -RGLB  ${rglb} \
+          -RGPL ${rgpl} \
+          -RGPU ${rgpu} \
+          -RGSM ${samplename}
           """
       }
 
