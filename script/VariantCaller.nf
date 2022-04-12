@@ -1097,7 +1097,7 @@ process Structural_Variant_calling_CNVnator {
 
 //https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4528635/
 //http://bioinform.github.io/metasv/
-process Group_Structural_Variant_with_{
+process Group_Structural_Variant_with_Metasv{
         label 'metasv'
         tag "$pair_id"
         publishDir "${params.outdir}/structural_variant/", mode: 'copy'
