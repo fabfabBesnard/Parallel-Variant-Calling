@@ -202,6 +202,7 @@ else {
         .set { fastqgz }
     Channel
         .fromPath(params.reads )
+        .view()
         .set{ fastqgz_fastqc}
 }
 
@@ -310,8 +311,8 @@ process Mapping_reads {
         tag "$pair_id"
       
         input:
-        set pair_id, bam_file from bam_files
         set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
+        set "${pair_id}", bam_file from bam_files
 
         output:
         file "${pair_id}.bam" into bam_files_RG
@@ -1096,7 +1097,7 @@ process Structural_Variant_calling_CNVnator {
 
 //https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4528635/
 //http://bioinform.github.io/metasv/
-process Group_Structural_Variant_with_Metasv{
+process Group_Structural_Variant_with_{
         label 'metasv'
         tag "$pair_id"
         publishDir "${params.outdir}/structural_variant/", mode: 'copy'
