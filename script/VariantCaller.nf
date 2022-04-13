@@ -267,7 +267,6 @@ process Mapping_reads {
     process Sam_to_bam {
       label 'samtools'
       tag "$pair_id"
-      publishDir "${params.outdir}/mapping", mode: 'copy'
 
       input:
       set pair_id, "${pair_id}.sam" from sam_files
@@ -309,6 +308,7 @@ process Mapping_reads {
       process Add_ReadGroup {
         label 'picardtools'
         tag "$pair_id"
+        publishDir "${params.outdir}/mapping", mode: 'copy'
       
         input:
         set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
@@ -334,6 +334,7 @@ process Mapping_reads {
       process MarkDuplicates_and_Merge{
         label 'picardtools'
         tag "$sample_id"
+        publishDir "${params.outdir}/mapping", mode: 'copy'
 
         input:
         set pair_id, val(sample_id) from fastqsamplename
