@@ -928,15 +928,7 @@ process Structural_Variant_calling_breakdancer_step1 {
   output:
   set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files, breackdancer_metasv, breakdancer_step2
   file "${pair_id}_config.cfg" into config_breakdancer
-<<<<<<< HEAD
-<<<<<<< HEAD
-  set pair_id, env(MEAN), env(STD) into config_for_mean_and_std, config_for_mean_and_std_view
-=======
   set pair_id, env(MEAN), env(STD) into config_for_mean_and_std
->>>>>>> modification du process metasv
-=======
-  set pair_id, env(MEAN), env(STD) into config_for_mean_and_std, config_for_mean_and_std_view
->>>>>>> 24fda70420315ede76181c01545d3e9af5676e4b
 
   shell:
   //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon
@@ -946,28 +938,10 @@ process Structural_Variant_calling_breakdancer_step1 {
   
   breakdancer-max !{pair_id}_config.cfg > breakdancer_!{pair_id}.ctx
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
-  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
-  '''
-} //We take the mean here for multi readgroup sample
-
-config_for_mean_and_std_view.view()
-=======
   MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
   STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
   '''
 }
->>>>>>> modification du process metasv
-=======
-  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
-  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
-  '''
-} //We take the mean here for multi readgroup sample
-
-config_for_mean_and_std_view.view()
->>>>>>> 24fda70420315ede76181c01545d3e9af5676e4b
 
 process Structural_Variant_calling_breakdancer_step2 {
   tag "${pair_id}"
@@ -1134,15 +1108,10 @@ process Group_Structural_Variant_with_Metasv{
         val pair_id into id
 
         script:
-<<<<<<< HEAD
 
-=======
-<<<<<<< HEAD
->>>>>>> modification du process metasv
-=======
->>>>>>> a44b46c93fd494090e6d3d5ce37d29631fc4e12d
->>>>>>> 24fda70420315ede76181c01545d3e9af5676e4b
+        println mean
         """
+        grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1150,16 +1119,16 @@ process Group_Structural_Variant_with_Metasv{
         --breakdancer_native $breakdancerout \
         --pindel_native ${pair_id}_SV_pindel* \
         --cnvnator_native ${pair_id}_CNV.call \
-        --lumpy_vcf Lumpy_${pair_id}.vcf \
+        --lumpy_vcf Lumpy.vcf\
         --outdir out \
         --sample $pair_id \
         --filter_gaps \
         --bam $bam \
-        --minsvlen 75 \
-        --maxsvlen 500000 \
+        --minsvlen 5 \
         --disable_assembly \
-        --isize_mean $mean \
-        --isize_sd $std \
+        #--spades spades.py \
+        #--age age_align \
+        --keep_standard_contigs
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
@@ -1265,11 +1234,7 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
-<<<<<<< HEAD
 /*process Extract_masked_region {
-=======
-process Extract_masked_region {
->>>>>>> modification du process metasv
   publishDir "${params.outdir}/masked_region/", mode: "copy"
 
   input:
@@ -1283,11 +1248,7 @@ process Extract_masked_region {
   python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
   """
 
-<<<<<<< HEAD
 }*/
-=======
-}
->>>>>>> modification du process metasv
 
 if (params.annotationname) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
@@ -1308,10 +1269,6 @@ if (params.annotationname) {
 
         script:
         """
-<<<<<<< HEAD
-=======
-        commnad_exist
->>>>>>> modification du process metasv
 
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
