@@ -1127,7 +1127,10 @@ process Group_Structural_Variant_with_Metasv{
 
         println mean
         """
+<<<<<<< HEAD
         grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
+=======
+>>>>>>> modification du process metasv
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1135,16 +1138,16 @@ process Group_Structural_Variant_with_Metasv{
         --breakdancer_native $breakdancerout \
         --pindel_native ${pair_id}_SV_pindel* \
         --cnvnator_native ${pair_id}_CNV.call \
-        --lumpy_vcf Lumpy.vcf\
+        --lumpy_vcf Lumpy_${pair_id}.vcf \
         --outdir out \
         --sample $pair_id \
         --filter_gaps \
         --bam $bam \
-        --minsvlen 5 \
+        --minsvlen 75 \
+        --maxsvlen 500000 \
         --disable_assembly \
-        #--spades spades.py \
-        #--age age_align \
-        --keep_standard_contigs
+        --isize_mean $mean \
+        --isize_sd $std \
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
@@ -1250,7 +1253,11 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
+<<<<<<< HEAD
 /*process Extract_masked_region {
+=======
+process Extract_masked_region {
+>>>>>>> modification du process metasv
   publishDir "${params.outdir}/masked_region/", mode: "copy"
 
   input:
@@ -1264,7 +1271,11 @@ process Prepare_Structural_Variant_calling_GATK {
   python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
   """
 
+<<<<<<< HEAD
 }*/
+=======
+}
+>>>>>>> modification du process metasv
 
 if (params.annotationname) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
@@ -1285,6 +1296,10 @@ if (params.annotationname) {
 
         script:
         """
+<<<<<<< HEAD
+=======
+        commnad_exist
+>>>>>>> modification du process metasv
 
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
