@@ -117,7 +117,7 @@ if (params.genomefasta) {
             fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
             fasta_BaseRecalibrator ; 
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ; fasta_Snpeff_variant_effect2
-            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
+            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv; fasta_masked_region}
 
             process Create_genome_bwa_index {
               label "bwa1"
@@ -312,7 +312,7 @@ process Mapping_reads {
       
         input:
         set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
-        set "${pair_id}", bam_file from bam_files
+        set "${pair_id}", "${pair_id}.bam" from bam_files
 
         output:
         file "${pair_id}.bam" into bam_files_RG
@@ -321,7 +321,7 @@ process Mapping_reads {
 
           """
           picard AddOrReplaceReadGroups \
-          -I ${bam_file} \
+          -I ${pair_id}.bam \
           -O "${pair_id}.bam" \
           -RGID ${rgid} \
           -RGLB  ${rglb} \
@@ -945,15 +945,19 @@ process Structural_Variant_calling_breakdancer_step1 {
   output:
   set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files, breackdancer_metasv, breakdancer_step2
   file "${pair_id}_config.cfg" into config_breakdancer
+  set pair_id, env(MEAN), env(STD) into config_for_mean_and_std
 
-  script:
+  shell:
   //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon
 
-  """
-  bam2cfg ${pair_id}.bam -o ${pair_id}_config.cfg
+  '''
+  bam2cfg !{pair_id}.bam -o !{pair_id}_config.cfg
   
-  breakdancer-max ${pair_id}_config.cfg > breakdancer_${pair_id}.ctx
-  """
+  breakdancer-max !{pair_id}_config.cfg > breakdancer_!{pair_id}.ctx
+
+  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
+  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
+  '''
 }
 
 process Structural_Variant_calling_breakdancer_step2 {
@@ -1098,6 +1102,7 @@ process Structural_Variant_calling_CNVnator {
 
 //https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4528635/
 //http://bioinform.github.io/metasv/
+
 process Group_Structural_Variant_with_Metasv{
         label 'metasv'
         tag "$pair_id"
@@ -1110,7 +1115,8 @@ process Group_Structural_Variant_with_Metasv{
         //file gatkindel from testgatkmetasv.collect() // #--gatk_vcf $gatkindel \
         file cnv from cnvnator_out.collect()
         file lumpy from lumpy_out.collect()
-        set pair_id, breakdancerout , bam , bamindex from breackdancer_metasv.join( non_filtered_bam_files_metasv ) 
+        set pair_id, breakdancerout , bam , bamindex from breackdancer_metasv.join( non_filtered_bam_files_metasv )
+        set "${pair_id}", val(mean), val(std) from config_for_mean_and_std
 
         output:
         //set pair_id, "${pair_id}_SV.vcf" into metasvout
@@ -1120,8 +1126,6 @@ process Group_Structural_Variant_with_Metasv{
 
         script:
         """
-        grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
-
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1129,16 +1133,16 @@ process Group_Structural_Variant_with_Metasv{
         --breakdancer_native $breakdancerout \
         --pindel_native ${pair_id}_SV_pindel* \
         --cnvnator_native ${pair_id}_CNV.call \
-        --lumpy_vcf Lumpy.vcf\
+        --lumpy_vcf Lumpy_${pair_id}.vcf \
         --outdir out \
         --sample $pair_id \
         --filter_gaps \
         --bam $bam \
-        --minsvlen 5 \
+        --minsvlen 75 \
+        --maxsvlen 500000 \
         --disable_assembly \
-        #--spades spades.py \
-        #--age age_align \
-        --keep_standard_contigs
+        --isize_mean $mean \
+        --isize_sd $std \
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
@@ -1244,6 +1248,22 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
+process Extract_masked_region {
+  publishDir "${params.outdir}/masked_region/", mode: "copy"
+
+  input:
+  file fa from fasta_masked_region
+
+  output:
+  file "${fa.baseName}.bed" into masked_region
+
+  script:
+  """
+  python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
+  """
+
+}
+
 if (params.annotationname) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
     process Snpeff_variant_effect {
@@ -1263,6 +1283,8 @@ if (params.annotationname) {
 
         script:
         """
+        commnad_exist
+
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
 
