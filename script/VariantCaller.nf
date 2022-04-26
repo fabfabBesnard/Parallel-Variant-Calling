@@ -141,22 +141,7 @@ if (params.genomefasta) {
 }
 
 if (params.sample){ //mettre un décimal pour le float
-                                             
-  process Empty_sample_dir {
-    script :
-
-      """
-      #! python3
-      import os
-
-      if os.path.exists("${params.outdir}/sample"):
-        print("Sample Directory removed for a new one")
-        os.system("rm -rf ${params.outdir}/sample")
-      else :
-        print("No Sample Directory yet")
-
-      """
-  }
+                                            
     
   //If option sample is true we read the sample option and create the channel for sampling process
   if (params.reads) {
@@ -172,6 +157,7 @@ if (params.sample){ //mettre un décimal pour le float
     //fastq_sample = Channel.fromPath("$params.scriptdir/fastq_sample.py")
 
     process Sampling {
+      label 'sample'
       tag "$pair_id"
       publishDir("${params.outdir}/sample") //Put the output file into the sample repertory
 
@@ -190,19 +176,17 @@ if (params.sample){ //mettre un décimal pour le float
       python3 $projectDir/fastq_sample.py ${spl} ${reads_sample[0]} ${reads_sample[1]} ${reads_sample[0]}_sampled.fastq ${reads_sample[1]}_sampled.fastq
       """
     }
+  
   }
-  /*Channel
-    .fromPath("${params.outdir}/sample/*" )
-    .set{ fastqgz_fastqc}*/
 }
 else {
     //If option sample is false we use the reads file for the rest of the script
     Channel
         .fromFilePairs( params.reads, size:2 )
+        .view()
         .set { fastqgz }
     Channel
         .fromPath(params.reads )
-        .view()
         .set{ fastqgz_fastqc}
 }
 
@@ -211,7 +195,7 @@ label 'fastqc'
 tag "$read"
 
 input:
-file read from fastqgz_fastqc
+file read from fastqgz_fastqc.flatten()
 
 output:
 file "*.{zip,html}" into fastq_report_files
