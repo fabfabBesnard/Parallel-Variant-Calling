@@ -308,21 +308,20 @@ process Mapping_reads {
       process Add_ReadGroup {
         label 'picardtools'
         tag "$pair_id"
-        publishDir "${params.outdir}/mapping", mode: 'copy'
       
         input:
         set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
         set "${pair_id}", "${pair_id}.bam" from bam_files
 
         output:
-        file "${pair_id}.bam" into bam_files_RG
+        file "${pair_id}_RG.bam" into bam_files_RG
 
         script:
 
           """
           picard AddOrReplaceReadGroups \
           -I ${pair_id}.bam \
-          -O "${pair_id}.bam" \
+          -O "${pair_id}_RG.bam" \
           -RGID ${rgid} \
           -RGLB  ${rglb} \
           -RGPL ${rgpl} \
@@ -347,7 +346,7 @@ process Mapping_reads {
         script:
         bash_array = ""
         for (id in pair_id){
-          bash_array = "-I "+id+".bam "+bash_array
+          bash_array = "-I "+id+"_RG.bam "+bash_array
         }
         bash_array = bash_array.substring(0, bash_array.length() - 1)
         """
@@ -1125,7 +1124,10 @@ process Group_Structural_Variant_with_Metasv{
         val pair_id into id
 
         script:
+
+        println mean
         """
+        grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1133,16 +1135,16 @@ process Group_Structural_Variant_with_Metasv{
         --breakdancer_native $breakdancerout \
         --pindel_native ${pair_id}_SV_pindel* \
         --cnvnator_native ${pair_id}_CNV.call \
-        --lumpy_vcf Lumpy_${pair_id}.vcf \
+        --lumpy_vcf Lumpy.vcf\
         --outdir out \
         --sample $pair_id \
         --filter_gaps \
         --bam $bam \
-        --minsvlen 75 \
-        --maxsvlen 500000 \
+        --minsvlen 5 \
         --disable_assembly \
-        --isize_mean $mean \
-        --isize_sd $std \
+        #--spades spades.py \
+        #--age age_align \
+        --keep_standard_contigs
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
@@ -1248,7 +1250,7 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
-process Extract_masked_region {
+/*process Extract_masked_region {
   publishDir "${params.outdir}/masked_region/", mode: "copy"
 
   input:
@@ -1262,7 +1264,7 @@ process Extract_masked_region {
   python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
   """
 
-}
+}*/
 
 if (params.annotationname) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
@@ -1283,7 +1285,6 @@ if (params.annotationname) {
 
         script:
         """
-        commnad_exist
 
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
