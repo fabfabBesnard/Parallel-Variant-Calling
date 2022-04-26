@@ -928,7 +928,7 @@ process Structural_Variant_calling_breakdancer_step1 {
   output:
   set  pair_id, "breakdancer_${pair_id}.ctx" into breakdancer_files, breackdancer_metasv, breakdancer_step2
   file "${pair_id}_config.cfg" into config_breakdancer
-  set pair_id, env(MEAN), env(STD) into config_for_mean_and_std
+  set pair_id, env(MEAN), env(STD) into config_for_mean_and_std, config_for_mean_and_std_view
 
   shell:
   //Attention la doc est fausse il ne faut pas utiliser de chevron pour bam2cfg sinon le fichier de config n'est pas bon
@@ -938,10 +938,12 @@ process Structural_Variant_calling_breakdancer_step1 {
   
   breakdancer-max !{pair_id}_config.cfg > breakdancer_!{pair_id}.ctx
 
-  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
-  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
+  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
+  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
   '''
-}
+} //We take the mean here for multi readgroup sample
+
+config_for_mean_and_std_view.view()
 
 process Structural_Variant_calling_breakdancer_step2 {
   tag "${pair_id}"
@@ -1109,12 +1111,7 @@ process Group_Structural_Variant_with_Metasv{
 
         script:
 
-        println mean
         """
-<<<<<<< HEAD
-        grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
-=======
->>>>>>> modification du process metasv
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1237,11 +1234,7 @@ process Prepare_Structural_Variant_calling_GATK {
 // voir piur utiliser la database deja crée dans snpeff 
 // voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
 
-<<<<<<< HEAD
 /*process Extract_masked_region {
-=======
-process Extract_masked_region {
->>>>>>> modification du process metasv
   publishDir "${params.outdir}/masked_region/", mode: "copy"
 
   input:
@@ -1255,11 +1248,7 @@ process Extract_masked_region {
   python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
   """
 
-<<<<<<< HEAD
 }*/
-=======
-}
->>>>>>> modification du process metasv
 
 if (params.annotationname) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
@@ -1280,10 +1269,6 @@ if (params.annotationname) {
 
         script:
         """
-<<<<<<< HEAD
-=======
-        commnad_exist
->>>>>>> modification du process metasv
 
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
