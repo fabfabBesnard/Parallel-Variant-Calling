@@ -1126,7 +1126,10 @@ process Group_Structural_Variant_with_Metasv{
         val pair_id into id
 
         script:
+<<<<<<< HEAD
 
+=======
+>>>>>>> a44b46c93fd494090e6d3d5ce37d29631fc4e12d
         """
 
         run_metasv.py \
