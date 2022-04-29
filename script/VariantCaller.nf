@@ -295,7 +295,7 @@ process Mapping_reads {
       
         input:
         set pair_id, samplename, rgpl, rglb, rgid, rgpu from sampletableid
-        set "${pair_id}", "${pair_id}.bam" from bam_files
+        file bam from bam_files.collect()
 
         output:
         file "${pair_id}_RG.bam" into bam_files_RG
