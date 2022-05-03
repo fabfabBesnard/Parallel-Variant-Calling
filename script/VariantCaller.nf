@@ -938,8 +938,8 @@ process Structural_Variant_calling_breakdancer_step1 {
   
   breakdancer-max !{pair_id}_config.cfg > breakdancer_!{pair_id}.ctx
 
-  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
-  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}')
+  MEAN=$(awk -F '\t' '{ print \$9}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
+  STD=$(awk -F '\t' '{ print \$10}' !{pair_id}_config.cfg | awk -F ':' '{ print \$2}' | awk '{ sum += $1 } END { print (sum / NR)}')
   '''
 }
 
@@ -1098,8 +1098,7 @@ process Group_Structural_Variant_with_Metasv{
         //file gatkindel from testgatkmetasv.collect() // #--gatk_vcf $gatkindel \
         file cnv from cnvnator_out.collect()
         file lumpy from lumpy_out.collect()
-        set pair_id, breakdancerout , bam , bamindex from breackdancer_metasv.join( non_filtered_bam_files_metasv )
-        set "${pair_id}", val(mean), val(std) from config_for_mean_and_std
+        set pair_id, breakdancerout , bam , bamindex, val(mean), val(std) from breackdancer_metasv.join( non_filtered_bam_files_metasv ).join( config_for_mean_and_std ).view()
 
         output:
         //set pair_id, "${pair_id}_SV.vcf" into metasvout
@@ -1109,9 +1108,7 @@ process Group_Structural_Variant_with_Metasv{
 
         script:
 
-        println mean
         """
-        grep -v "IMPRECISE" Lumpy_${pair_id}.vcf  > Lumpy.vcf
 
         run_metasv.py \
         --num_threads ${task.cpus} \
@@ -1119,16 +1116,17 @@ process Group_Structural_Variant_with_Metasv{
         --breakdancer_native $breakdancerout \
         --pindel_native ${pair_id}_SV_pindel* \
         --cnvnator_native ${pair_id}_CNV.call \
-        --lumpy_vcf Lumpy.vcf\
+        --lumpy_vcf Lumpy_${pair_id}.vcf \
         --outdir out \
         --sample $pair_id \
         --filter_gaps \
         --bam $bam \
-        --minsvlen 5 \
+        --minsvlen $params.minsvlen \
         --disable_assembly \
-        #--spades spades.py \
-        #--age age_align \
-        --keep_standard_contigs
+        --maxsvlen $params.maxsvlen \
+        --isize_mean $mean \
+        --isize_sd $std \
+        --disable_assembly \
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
