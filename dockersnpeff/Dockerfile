@@ -9,7 +9,8 @@ WORKDIR /myapp
 SHELL [ "/bin/bash", "-c" ]
 
 RUN apt-get -y update && \
-	apt-get -y install wget unzip openjdk-11-jre-headless && \ 
+	apt-get -y install wget unzip openjdk-11-jre-headless && \
+	apt-get install -y python && \
     apt-get -y clean
 
 RUN	wget "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip" && \
@@ -30,3 +31,8 @@ RUN cd snpEff && \
 # Add snpeff (or snpsift and all scripts) executable commands to the $PATH when the docker container is running
 RUN cp -r /myapp/snpEff/scripts/* /myapp/snpEff/exec/. 
 ENV PATH=$PATH:/myapp/snpEff/exec/
+
+# Add a parser script for VCF to tag repeated regions in the genome (using infomartion such as masked regions of the genome)
+# This script is VCF_parser.py available in the repo pf Parallel-Variant-Calling (in /script folder)
+RUN cd /myapp && \
+	wget https://raw.githubusercontent.com/fabfabBesnard/Parallel-Variant-Calling/masked_genome/script/VCF_parser.py
