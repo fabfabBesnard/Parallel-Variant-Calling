@@ -36,3 +36,5 @@ ENV PATH=$PATH:/myapp/snpEff/exec/
 # This script is VCF_parser.py available in the repo pf Parallel-Variant-Calling (in /script folder)
 RUN cd /myapp && \
 	wget https://raw.githubusercontent.com/fabfabBesnard/Parallel-Variant-Calling/masked_genome/script/VCF_parser.py
+
+RUN apt-get install bedtools
