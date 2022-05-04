@@ -383,6 +383,7 @@ dependencies:
   - zope.interface=5.4.0=py38h7f8727e_0
   - zstd=1.4.9=haebb681_0
   - pip:
+    - biopython==1.79
     - htseq==1.99.2
     - pysam==0.18.0
 prefix: /home/adminmalik/anaconda3/envs/var_call
