@@ -8,13 +8,16 @@ WORKDIR /myapp
 # Change Shell to 'bash', default is 'sh'
 SHELL [ "/bin/bash", "-c" ]
 
-RUN apt-get -y update && \
-	apt-get -y install wget unzip openjdk-11-jre-headless && \
-	apt-get install -y python && \
+RUN apt-get update && \
+	apt-get install wget gcc make zlib1g-dev libssl-dev -y
+
+RUN apt install python3 -y
+
+RUN apt-get -y install wget unzip openjdk-11-jre-headless && \ 
     apt-get -y clean
 
-RUN	wget "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip" && \
-    unzip snpEff_latest_core.zip
+RUN	wget "https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip"
+RUN unzip snpEff_latest_core.zip
 
 # Install pre-built databases    
 RUN cd snpEff && \
@@ -36,5 +39,9 @@ ENV PATH=$PATH:/myapp/snpEff/exec/
 # This script is VCF_parser.py available in the repo pf Parallel-Variant-Calling (in /script folder)
 RUN cd /myapp && \
 	wget https://raw.githubusercontent.com/fabfabBesnard/Parallel-Variant-Calling/masked_genome/script/VCF_parser.py
+
+RUN chmod +x VCF_parser.py
+
+ENV PATH=$PATH:/myapp
 
 RUN apt-get install bedtools

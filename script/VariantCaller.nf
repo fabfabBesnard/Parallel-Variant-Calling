@@ -1271,6 +1271,7 @@ if (params.annotationname) {
         input:
         file fa from fasta_Snpeff_variant_effect2.collect()
         file file_vcf from good_variant.flatten().concat(vcfmetasv.flatten())
+        file bed from masked_region
 
         output:
         file "snpeff_${file_vcf}" into anno
@@ -1283,7 +1284,11 @@ if (params.annotationname) {
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        bedtools intersect -a snpeff_${file_vcf} -b $bed -C > intersect
+
+        python VCF_parser.py intersect intersect.vcf
+
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
 }
