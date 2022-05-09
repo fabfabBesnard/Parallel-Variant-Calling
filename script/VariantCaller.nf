@@ -1270,8 +1270,7 @@ if (params.annotationname) {
 
         input:
         file fa from fasta_Snpeff_variant_effect2.collect()
-        file file_vcf from good_variant.flatten().concat(vcfmetasv.flatten())
-        file bed from masked_region
+        set file (file_vcf), file (bed) from good_variant.flatten().concat(vcfmetasv.flatten()).combine(masked_region)
 
         output:
         file "snpeff_${file_vcf}" into anno
@@ -1280,13 +1279,14 @@ if (params.annotationname) {
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
+
         """
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
 
-        bedtools intersect -a snpeff_${file_vcf} -b $bed -C > intersect
+        bedtools intersect -c -a snpeff_${file_vcf} -b $bed > intersect
 
-        python VCF_parser.py intersect intersect.vcf
+        VCF_parser.py intersect intersect.vcf
 
         cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
@@ -1329,7 +1329,7 @@ else{
         input:
         file configfile from configsnpeff.collect()
         file fa from fasta_Snpeff_variant_effect.collect()
-        file file_vcf from good_variant.flatten()//.concat(vcfmetasv)
+        set file(file_vcf), file(bed) from good_variant.flatten().combine(masked_region)//.concat(vcfmetasv)
         file directorysnpeff from snpfile.collect()
 
         output:
@@ -1339,15 +1339,18 @@ else{
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
-
-        println file_vcf
         
         """
         snpeff ${fa.baseName} \
         -c $configfile \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENEID" "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        bedtools intersect -c -a snpeff_${file_vcf} -b $bed > intersect
+
+        VCF_parser.py intersect intersect.vcf
+
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+
         """
       }
 }
