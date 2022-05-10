@@ -109,7 +109,7 @@ log.info "-\033[2m--------------------------------------------------------------
 if (params.genomefasta) {
         Channel
             .fromPath( params.genomefasta )
-            .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
+            /*.ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }*/
             .into { fasta_file ; fasta_VQSR ;
             fasta_file2GATK; 
             fasta3;fasta_variantmetric; 
