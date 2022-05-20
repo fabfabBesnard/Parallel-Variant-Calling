@@ -117,7 +117,7 @@ if (params.genomefasta) {
             fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
             fasta_BaseRecalibrator ; 
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ; fasta_Snpeff_variant_effect2
-            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv; fasta_masked_region}
+            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv; fasta_masked}
 
             process Create_genome_bwa_index {
               label "bwa1"
@@ -137,6 +137,23 @@ if (params.genomefasta) {
                 &> ${fasta.baseName}_bwa_report.txt
                 """
 
+              }
+
+              process Masked_genome {
+                tag "$fasta.simpleName"
+                publishDir "${params.outdir}/maskedgenome/", mode: 'copy'
+
+                input:
+                file fasta from fasta_masked
+
+                output:
+                file "${fasta.baseName}_masked.bed" into masked_region
+
+                script:
+
+                """
+                python $projectDir/Nstretch2bed.py $fasta ${fasta.baseName}_masked.bed
+                """
               }
 }
 
@@ -1257,7 +1274,7 @@ if (params.annotationname) {
 
         input:
         file fa from fasta_Snpeff_variant_effect2.collect()
-        file file_vcf from good_variant.flatten().concat(vcfmetasv.flatten())
+        set file (file_vcf), file (bed) from good_variant.flatten().concat(vcfmetasv.flatten()).combine(masked_region)
 
         output:
         file "snpeff_${file_vcf}" into anno
@@ -1266,12 +1283,17 @@ if (params.annotationname) {
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
+
         """
 
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        bedtools intersect -c -a snpeff_${file_vcf} -b $bed > intersect
+
+        VCF_parser.py intersect intersect.vcf
+
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
 }
@@ -1312,7 +1334,7 @@ else{
         input:
         file configfile from configsnpeff.collect()
         file fa from fasta_Snpeff_variant_effect.collect()
-        file file_vcf from good_variant.flatten()//.concat(vcfmetasv)
+        set file(file_vcf), file(bed) from good_variant.flatten().combine(masked_region)//.concat(vcfmetasv)
         file directorysnpeff from snpfile.collect()
 
         output:
@@ -1322,15 +1344,18 @@ else{
         file "tab_snpeff_${file_vcf}" into tabsnpeff
 
         script:
-
-        println file_vcf
         
         """
         snpeff ${fa.baseName} \
         -c $configfile \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENEID" "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" | uniq -u > tab_snpeff_${file_vcf}
+        bedtools intersect -c -a snpeff_${file_vcf} -b $bed > intersect
+
+        VCF_parser.py intersect intersect.vcf
+
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+
         """
       }
 }

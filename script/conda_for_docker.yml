@@ -63,6 +63,7 @@ dependencies:
   - zlib=1.2.11=h7f8727e_4
   - zstd=1.4.9=haebb681_0
   - pip:
+    - biopython==1.79
     - htseq==1.99.2
     - numpy==1.22.2
     - pandas==1.4.1
