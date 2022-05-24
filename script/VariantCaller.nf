@@ -117,7 +117,7 @@ if (params.genomefasta) {
             fasta_extract_Extract_SNP_VQSR ; fasta_Extract_INDEL_VQSR ;
             fasta_BaseRecalibrator ; 
             fasta_dict ; fasta_snpeff ; fasta_Snpeff_variant_effect ; fasta_Snpeff_variant_effect2
-            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv; fasta_masked}
+            fasta_Structural_Variant_calling_GATK ; fasta_Structural_Variant_calling_GATK_prepare ;  fasta_pindel ; fasta_cnv; fasta_metasv}
 
             process Create_genome_bwa_index {
               label "bwa1"
@@ -138,23 +138,29 @@ if (params.genomefasta) {
                 """
 
               }
+}
+if (params.maskedgenome) {
+  Channel
+    .fromPath( params.maskedgenome )
+    .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
+    .into {fasta_masked}
+    
+  process Masked_genome {
+    tag "$fasta.simpleName"
+    publishDir "${params.outdir}/maskedgenome/", mode: 'copy'
 
-              process Masked_genome {
-                tag "$fasta.simpleName"
-                publishDir "${params.outdir}/maskedgenome/", mode: 'copy'
+    input:
+      file fasta from fasta_masked
 
-                input:
-                file fasta from fasta_masked
+    output:
+      file "${fasta.baseName}_masked.bed" into masked_region
 
-                output:
-                file "${fasta.baseName}_masked.bed" into masked_region
+    script:
 
-                script:
-
-                """
-                python $projectDir/Nstretch2bed.py $fasta ${fasta.baseName}_masked.bed
-                """
-              }
+      """
+      python $projectDir/Nstretch2bed.py $fasta ${fasta.baseName}_masked.bed
+      """
+  }
 }
 
 if (params.sample){ //mettre un décimal pour le float
