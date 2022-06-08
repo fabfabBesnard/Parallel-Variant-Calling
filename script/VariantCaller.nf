@@ -551,7 +551,7 @@ process Create_ref_dictionary {
   tag "$fasta"
 
   input:
-  file fasta from  fasta_dict
+  file fasta from fasta_dict
 
   output:
   file "*.dict" into fasta_dict_Variant_calling, fasta_dict_VQSR, fasta_dict_Structural_Variant_calling_GATK,fasta_dict_Structural_Variant_calling_GATK_prepare, fasta_dict_Variant_metric , fasta_dict_Gvcf_to_vcf , fasta_dict_Gvcf_to_vcf_after_bqsr , fasta_dict_extract_Extract_SNP_VQSR,fasta_dict_Extract_INDEL_VQSR,fasta_dict_extract_after_bqsr , fasta_dict_BaseRecalibrator , fasta_dict_Variant_calling_after_bqsr
@@ -559,7 +559,7 @@ process Create_ref_dictionary {
   script:
 
   """
-  gatk  --java-options "-Xmx30g" CreateSequenceDictionary -R $fasta
+  gatk --java-options "-Xmx30g" CreateSequenceDictionary -R $fasta
   """
 
 }
@@ -1166,7 +1166,7 @@ process Find_specific_SV{
         file SV from vcfmetasv_withnonspecific.collect()
 
         output:
-        file "*filtered_SV.vcf" into vcfmetasv 
+        file "*filtered_SV.vcf" into vcfmetasv
 
         script:
         """
@@ -1327,7 +1327,7 @@ else{
         echo "#Physcomitrium (Physcomitrella) patens (${fa.baseName}, 11/03/2021)" >> snpEff.config
         echo "${fa.baseName}.genome : Physcomitrium patens"  >> snpEff.config
 
-        snpEff build -gff3 -c snpEff.config -v ${fa.baseName}
+        snpEff build -gff3 -c snpEff.config -v ${fa.baseName} -debug #-noCheckProtein -noCheckCds
         """
         }
 
