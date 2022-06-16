@@ -1299,7 +1299,7 @@ if (params.annotationname) {
 
         VCF_parser.py intersect intersect.vcf
 
-        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
 }
@@ -1360,7 +1360,7 @@ else{
 
         VCF_parser.py intersect intersect.vcf
 
-        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
 
         """
       }
