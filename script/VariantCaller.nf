@@ -1272,6 +1272,7 @@ process Prepare_Structural_Variant_calling_GATK {
 }*/
 
 if (params.annotationname) {
+  if (params.maskedgenome) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
     process Snpeff_variant_effect {
         label 'snpeff'
@@ -1302,6 +1303,34 @@ if (params.annotationname) {
         cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
+  }
+  else {
+    process Snpeff_variant_effect {
+        label 'snpeff'
+        tag "$file_vcf"
+        publishDir "${params.outdir}/snpeff/$file_vcf", mode: 'copy'
+
+        input:
+        file fa from fasta_Snpeff_variant_effect2.collect()
+        set file (file_vcf) from good_variant.flatten().concat(vcfmetasv.flatten())
+
+        output:
+        file "snpeff_${file_vcf}" into anno
+        file "snpEff_summary.html" into summary
+        file "snpEff_genes.txt" into snptxt
+        file "tab_snpeff_${file_vcf}" into tabsnpeff
+
+        script:
+
+        """
+
+        snpeff $params.annotationname \
+        -v $file_vcf > snpeff_${file_vcf}
+
+        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+        """
+      }
+  }
 }
 else{
     process Snpeff_build_database {
