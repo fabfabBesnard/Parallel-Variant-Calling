@@ -27,7 +27,7 @@ for line in vcf_in.readlines():
 
         line=line.split('\t') #Parse the line
 
-        if 'ANN' in line[7] and line[10]=='1\n': #If Ann is in the line and the variant is in masked region with parse it
+        if 'ANN' in line[7] and line[10]!='0\n': #If Ann is in the line and the variant is in masked region with parse it
             
             info=line[7].split(';')#Parse the info part of vcf file
             keep_str=line #Variable useful to rebuild the correct line in the file

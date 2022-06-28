@@ -1274,7 +1274,7 @@ process Prepare_Structural_Variant_calling_GATK {
 if (params.annotationname) {
   if (params.maskedgenome) {
     //http://pcingola.github.io/SnpEff/ss_extractfields/
-    process Snpeff_variant_effect {
+    process Snpeff_variant_effect_with_maskedgenome {
         label 'snpeff'
         tag "$file_vcf"
         publishDir "${params.outdir}/snpeff/$file_vcf", mode: 'copy'
