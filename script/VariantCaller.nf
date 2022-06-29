@@ -1018,6 +1018,7 @@ process Structural_Variant_calling_pindel {
   -T ${task.cpus} \
   -i config \
   --Ploidy fileploidy \
+  --max_range_index 6
   -o ${pair_id}_SV_pindel
 
   pindel2vcf -r $fasta -R ${fasta.baseName} -P ${pair_id}_SV_pindel -v pindel_${pair_id}.vcf -d 20210101 -G
