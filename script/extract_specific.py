@@ -123,11 +123,13 @@ def good( ligne ):
                     samplerank = dicoGT[GT]
     return toadd
 
-def create_new_variant_line( variant , rank):
+def create_new_variant_line( variant , rank, samplelist):
     #Creer la ligne a ajouter en gardant le bon variant et en ajoutant les autre dans INFO
     newvarantlineinlist = variant.split('\t')[:9]
     #recupere les informations des autres variants
     othersampleinfo = variant.split('\t')[9:]
+    for i in range(0, len(othersampleinfo)) :
+        othersampleinfo[i]=str(othersampleinfo[i])+";"+str(samplelist[i])
     del( othersampleinfo[rank] )
     newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";"
     scorevariant = variant.split('\t')[9+rank]
@@ -177,13 +179,13 @@ for ligneN in open(vcfname, 'r'):
             #go to next line
             continue
         else :
-            print("vcf accepte")
+            #print("vcf accepte")
             add , samplerank = extractgoodvariant(ligne )
             if add :
                 for i in samplerank:
-                    newline = create_new_variant_line( ligne , i)
+                    newline = create_new_variant_line( ligne , i, samplelist)
                     dpsample = newline.split('\t')[-1].split(':')[2]
-                    print(dpsample)
+                    #print(dpsample)
                     if int(dpsample) < int(dp):
                         number_removed += 1
                         continue
