@@ -158,7 +158,7 @@ for ligneN in open(vcfname, 'r'):
     if ligne.startswith('##'):
         vcfheader = vcfheader + ligne + '\n'
     elif ligne.startswith('#CHROM'):
-        vcfheader = vcfheader + '##INFO=<ID=OTHERVAR,Number=.,Type=String,Description="Othersample information">\n##source=ExtractGoodvariantnextflowprocess'+ '\n'
+        vcfheader = vcfheader + '##INFO=<ID=OTHERVAR,Number=.,Type=String,Description="INFO field from other variants grouped in gVCF WRITTEN AS INFO;SAMPLENAME">\n##source=ExtractGoodvariantnextflowprocess'+ '\n'
         #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Mutant1	Mutant2	Mutant3	Mutant4	Mutant5	StartingStrain
         header=ligne
         info = ligne.split('\t')

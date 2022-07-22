@@ -884,7 +884,7 @@ if (params.vqsrfile) {
         file vcf from indelVQSR.concat(snpVQSR)
 
         output:
-        file "*.vcf" into good_variant , good_variant_for_mqc
+        file "*.vcf" into good_variant , good_variant_for_mqc, good_variant_all
         file "nb_removed" into removed
         file "*_mqc*" into bar_multiqc
 
@@ -908,7 +908,7 @@ else{
         file vcf from snp_files.concat(indel_files)
 
         output:
-        file "*.vcf" into good_variant, good_variant_for_mqc, variant_check
+        file "*.vcf" into good_variant, good_variant_for_mqc, variant_check, good_variant_all
         file "*_mqc*" into bar_multiqc
         file "nb_removed" into removed
 
@@ -1128,7 +1128,7 @@ process Group_Structural_Variant_with_Metasv{
         //set pair_id, "${pair_id}_SV.vcf" into metasvout
         file "${pair_id}_SV.vcf" into vcfmetasv_withnonspecific , sv_vcf_forstat
         file "raw_${pair_id}_SV.vcf" into raw_metasv
-        val pair_id into id
+        val pair_id into id, id_all_variant
 
         script:
 
@@ -1167,7 +1167,7 @@ process Find_specific_SV{
         file SV from vcfmetasv_withnonspecific.collect()
 
         output:
-        file "*filtered_SV.vcf" into vcfmetasv
+        file "*filtered_SV.vcf" into vcfmetasv, vcfmetasv_all
 
         script:
         """
@@ -1271,6 +1271,23 @@ process Prepare_Structural_Variant_calling_GATK {
   """
 
 }*/
+
+process All_variant {
+  label 'snpeff'
+  tag "$file_vcf"
+
+  input:
+  set file (file_vcf), file (bed) from good_variant_all.flatten().concat(vcfmetasv_all.flatten())
+
+  output:
+  file "tab_all_${file_vcf}" into tab_all
+
+  script:
+  """
+  cat $file_vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - CHROM POS REF QUAL ALT DP SVLEN | uniq -u > tab_all_${file_vcf}
+  """
+
+}
 
 if (params.annotationname) {
   if (params.maskedgenome) {
@@ -1396,6 +1413,32 @@ else{
       }
 }
 
+process Final_process_all_variant {
+      tag "$pair_id"
+      publishDir "${params.outdir}/All_variant", mode: 'copy'
+
+      input:
+      file fi from tab_all.collect()
+      val pair_id from id_all_variant
+
+      output:
+      file "${pair_id}.tsv" into final_files_all_variant
+
+      script:
+      """
+      liste_fichiers=`ls *${pair_id}*`
+
+      for fichier in \$liste_fichiers
+      do
+        head -1 \$fichier > ${pair_id}.tsv
+      done
+      
+      for i in \$liste_fichiers
+      do 
+       sed '1d;\$d' \$i >> ${pair_id}.tsv
+      done
+      """
+}
 
 process Final_process {
       tag "$pair_id"
