@@ -1154,7 +1154,7 @@ process Group_Structural_Variant_with_Metasv{
 
         gunzip out/variants.vcf.gz
         mv out/variants.vcf raw_${pair_id}_SV.vcf
-        grep -v "LowQual" raw_${pair_id}_SV.vcf | grep -v "IMPRECISE" > ${pair_id}_SV.vcf
+        grep -v "LowQual" raw_${pair_id}_SV.vcf > ${pair_id}_SV.vcf
 
         """
 }
@@ -1171,7 +1171,7 @@ process Find_specific_SV{
 
         script:
         """
-        python $projectDir/extract_specific_SV.py
+        python $projectDir/extract_specific_SV.py $params.offset $params.psize
         """
 }
 
@@ -1284,7 +1284,7 @@ process All_variant {
 
   script:
   """
-  cat $file_vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - CHROM POS REF QUAL GEN[*].GT ALT DP SVLEN OTHERVAR | uniq -u > tab_all_${file_vcf}
+  cat $file_vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - CHROM POS REF QUAL GEN[*].GT ALT DP SVLEN WARNING_SPECIFIC_ALLELE OTHERVAR | uniq -u > tab_all_${file_vcf}
   """
 
 }
@@ -1318,7 +1318,7 @@ if (params.annotationname) {
 
         VCF_parser.py intersect intersect.vcf
 
-        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF GEN[*].GT ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" OTHERVAR | uniq -u > tab_snpeff_${file_vcf}
+        cat intersect.vcf | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF GEN[*].GT ALT DP SVLEN WARNING_SPECIFIC_ALLELE "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" OTHERVAR | uniq -u > tab_snpeff_${file_vcf}
         """
       }
   }
@@ -1345,7 +1345,7 @@ if (params.annotationname) {
         snpeff $params.annotationname \
         -v $file_vcf > snpeff_${file_vcf}
 
-        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF ALT DP SVLEN "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
+        cat snpeff_${file_vcf} | vcfEffOnePerLine.pl | snpsift extractFields -e '.' - "ANN[*].GENE" CHROM POS REF GEN[*].GT ALT DP SVLEN WARNING_SPECIFIC_ALLELE "ANN[*].EFFECT" "ANN[*].IMPACT" "ANN[*].BIOTYPE" "ANN[*].ERRORS" | uniq -u > tab_snpeff_${file_vcf}
         """
       }
   }

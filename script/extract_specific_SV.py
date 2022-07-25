@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import glob
+import sys
 
 #en poucrentage
-toolerance = 1
+tolerance = 1
+offset = sys.argv[1]
+psize= sys.argv[2]
 
 vcf = {}
 
@@ -37,15 +40,15 @@ for fichierencours in vcf:
     for chromencours in vcf[fichierencours]['dichrom']:
         for variant in vcf[fichierencours]['dichrom'][chromencours] :
             for fichiercomparer in listfichieracomparer:
-                try : 
+                try :
                     for variant_bis in vcf[fichiercomparer]['dichrom'][chromencours] :
-                        position1 = variant[0]*(100-toolerance)/100
-                        position2 = variant[0]*(100+toolerance)/100
+                        position1 = variant[0]-int(offset)
+                        position2 = variant[0]+int(offset)
                         #si la position du variant est dans l'interval 
-                        if (variant_bis[0] > position1 ) & (variant_bis[0] < position2 ):
-                            taille1 = variant[1]*(100-toolerance)/100
-                            taille2 = variant[1]*(100+toolerance)/100
-                            if (variant_bis[1] > taille1 ) & (variant_bis[1] < taille2 ):
+                        if (variant_bis[0] >= position1 ) & (variant_bis[0] <=position2 ):
+                            taille1 = abs(variant[1])*(1-float(psize))
+                            taille2 = abs(variant[1])*(1+float(psize))
+                            if (abs(variant_bis[1]) >= taille1 ) & (abs(variant_bis[1]) <= taille2 ):
                                 variant[3] = False
                                 variant_bis[3] = False
                                 break

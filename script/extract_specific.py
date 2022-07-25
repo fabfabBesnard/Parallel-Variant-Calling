@@ -123,6 +123,35 @@ def good( ligne ):
                     samplerank = dicoGT[GT]
     return toadd
 
+def check_othervar_unknown( othersampleinfo ): #Verifie si les autres échantillons ne possède aucun read aligné et donc sont tous undiefined
+    nb_read_tot=[]
+    for sample in othersampleinfo:
+        read=sample.split(":")[1].split(",")
+        nb_read=0
+        for i in read:
+            nb_read=nb_read+int(i)
+        nb_read_tot.append(nb_read)
+    if sum(nb_read_tot)==0:
+        return True
+    else :
+        return False
+
+def check_othervar_false_positive ( othersampleinfo, sampleinfo ):
+    for sample in othersampleinfo:
+        allele=sample.split(":")[0]
+        read=sample.split(":")[1].split(",")
+        if allele == "." or allele =="./." or allele == ".|.":
+            allele_count=read[int(sampleinfo[0])]
+            total_read_count=0
+            for i in read:
+                total_read_count=total_read_count+int(i)
+            if total_read_count != 0:
+                prop_allele = int(allele_count)//int(total_read_count)
+                print(prop_allele)
+                if prop_allele >= 0.25 :
+                    return True
+    return False
+
 def create_new_variant_line( variant , rank, samplelist):
     #Creer la ligne a ajouter en gardant le bon variant et en ajoutant les autre dans INFO
     newvarantlineinlist = variant.split('\t')[:9]
@@ -130,8 +159,14 @@ def create_new_variant_line( variant , rank, samplelist):
     othersampleinfo = variant.split('\t')[9:]
     for i in range(0, len(othersampleinfo)) :
         othersampleinfo[i]=str(othersampleinfo[i])+":"+str(samplelist[i])
-    del( othersampleinfo[rank] )
-    newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";"
+    sampleinfo=othersampleinfo[rank]
+    del( othersampleinfo[rank] ) #on suprimme les infos concernant l'échantillon en cours de modification
+    if check_othervar_unknown(othersampleinfo): #
+        newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";WARNING_SPECIFIC_ALLELE=unread_position_in_other_samples"
+    elif check_othervar_false_positive (othersampleinfo, sampleinfo):
+        newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";WARNING_SPECIFIC_ALLELE=allele_detected_in_other_sample(s)"
+    else :
+        newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";"
     scorevariant = variant.split('\t')[9+rank]
     newvarantlineinlist.append(scorevariant)
     newvarantline = '\t'.join( newvarantlineinlist)
@@ -158,7 +193,7 @@ for ligneN in open(vcfname, 'r'):
     if ligne.startswith('##'):
         vcfheader = vcfheader + ligne + '\n'
     elif ligne.startswith('#CHROM'):
-        vcfheader = vcfheader + '##INFO=<ID=OTHERVAR,Number=.,Type=String,Description="INFO field from other variants grouped in gVCF WRITTEN AS INFO;SAMPLENAME">\n##source=ExtractGoodvariantnextflowprocess'+ '\n'
+        vcfheader = vcfheader + '##INFO=<ID=OTHERVAR,Number=.,Type=String,Description="INFO field from other variants grouped in gVCF WRITTEN AS INFO;SAMPLENAME">\n##INFO=<ID=WARNING_SPECIFIC_ALLELE,Type=String,Description="indicates potential warning cases where the sample allele may not be unique to this sample. Check other samples of the cohort."\n##source=ExtractGoodvariantnextflowprocess'+ '\n'
         #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Mutant1	Mutant2	Mutant3	Mutant4	Mutant5	StartingStrain
         header=ligne
         info = ligne.split('\t')
