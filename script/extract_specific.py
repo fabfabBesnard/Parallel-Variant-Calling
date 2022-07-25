@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Garder les lignes ## info 
-# Les stokcker dans une variable pour editer les prochains VCF 
+# Les stocker dans une variable pour editer les prochains VCF 
 # faire de la comparaison ligne par ligne et si un sample ressort en etant 1/1 ou 2/2 ou 0/0 tout seul parmis les autres 
 # Editer un fichier vcf par echantillon 
 
@@ -32,7 +32,7 @@ def extractgoodvariant( ligne ):
     dicoGT = {}
     for i in variant_in_liste:
         GT = i.split(":")[0]
-        #Si la taille du variant est 1 -> polidy 1
+        #Si la taille du variant est 1 -> ploidy 1
         if len(GT) == 1 :
             if GT not in dicoGT.keys():
                 #Ajout d'une clef GT avec comme valeur une liste des rang du variant
@@ -90,7 +90,7 @@ def good( ligne ):
     dicoGT = {}
     for i in variant_in_liste:
         GT = i.split(":")[0]
-        #Si la taille du variant est 1 -> polidy 1
+        #Si la taille du variant est 1 -> ploidy 1
         if len(GT) == 1 :
             if GT not in dicoGT.keys():
                 #Ajout d'une clef GT avec comme valeur une liste des rang du variant
