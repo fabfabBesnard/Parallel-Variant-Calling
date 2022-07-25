@@ -23,8 +23,14 @@ for line in vcf_in.readlines():
     if '#' not in line:
 
         line=line.split('\t') #Parse the line
+        for othervar in line[7].split(';') :
+            if "OTHERVAR" in othervar :
+                if "./." in othervar or ".|." in othervar or "." in othervar:
+                    print(str(othervar)+" "+str(line[9]))
+            #othervar = str(line[7].split(';')[11].split("=")[1][1:-1])
+            #print(othervar)
         allele=line[9].split(':')
-        if "./." in allele[0] or ".|." in allele[0]:
+        if "./." in allele[0] or ".|." in allele[0] or "." in allele[0]:
             count=count+1
 
-print(count)
+print("./.="+str(count))

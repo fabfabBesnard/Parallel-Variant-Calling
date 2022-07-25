@@ -129,7 +129,7 @@ def create_new_variant_line( variant , rank, samplelist):
     #recupere les informations des autres variants
     othersampleinfo = variant.split('\t')[9:]
     for i in range(0, len(othersampleinfo)) :
-        othersampleinfo[i]=str(othersampleinfo[i])+";"+str(samplelist[i])
+        othersampleinfo[i]=str(othersampleinfo[i])+":"+str(samplelist[i])
     del( othersampleinfo[rank] )
     newvarantlineinlist[7] = newvarantlineinlist[7]+";"+"OTHERVAR="+str(othersampleinfo)+";"
     scorevariant = variant.split('\t')[9+rank]
