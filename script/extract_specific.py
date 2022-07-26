@@ -147,7 +147,7 @@ def check_othervar_false_positive ( othersampleinfo, sampleinfo ):
                 total_read_count=total_read_count+int(i)
             if total_read_count != 0:
                 prop_allele = int(allele_count)//int(total_read_count)
-                print(prop_allele)
+                #print(prop_allele)
                 if prop_allele >= 0.25 :
                     return True
     return False

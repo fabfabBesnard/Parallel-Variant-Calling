@@ -106,7 +106,7 @@ log.info "-\033[2m--------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-if (params.genomefasta) {
+if (params.genomefasta) { //Channel for reference genome in fasta format
         Channel
             .fromPath( params.genomefasta )
             .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
@@ -140,7 +140,7 @@ if (params.genomefasta) {
               }
 }
 if (params.maskedgenome) {
-  Channel
+  Channel // Channel for masked reference genome
     .fromPath( params.maskedgenome )
     .ifEmpty { error "Cannot find any file matching: ${params.genomefasta}" }
     .into {fasta_masked}
@@ -347,7 +347,7 @@ process Mapping_reads {
         file bam_file from bam_files_RG.collect()
 
         output:
-        set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
+        set sample_id, "${sample_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain, bam_for_index
         set sample_id, "${sample_id}_marked_dup_metrics.txt" into picardmetric_files
 
         script:
@@ -369,12 +369,13 @@ process Mapping_reads {
     process Add_ReadGroup_and_MarkDuplicates_bam {
       label 'picardtools'
       tag "$pair_id"
+      publishDir "${params.outdir}/mapping", mode: 'copy'
 
       input:
       set pair_id, bam_file from bam_files
 
       output:
-      set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain 
+      set pair_id, "${pair_id}_readGroup_MarkDuplicates.bam" into bam_files_RG_MD , bam_for_strartingstrain, bam_for_index 
       set pair_id, "${pair_id}_marked_dup_metrics.txt" into picardmetric_files
 
       script:
@@ -393,22 +394,24 @@ process Mapping_reads {
           -O "${pair_id}_readGroup_MarkDuplicates.bam" \
           -M "${pair_id}_marked_dup_metrics.txt"
       """
-
-      /*"""
-      PicardCommandLine AddOrReplaceReadGroups \
-          I=${bam_file} \
-          O="${pair_id}.bam" \
-          RGID=${pair_id} \
-          RGLB=lib1 \
-          RGPL=illumina \
-          RGPU=unit1 \
-          RGSM=${pair_id}
-      PicardCommandLine MarkDuplicates \
-          I="${pair_id}.bam" \
-          O="${pair_id}_readGroup_MarkDuplicates.bam" \
-          M="${pair_id}_marked_dup_metrics.txt"
-      """*/
     }
+  }
+
+  process Index_Mapping {
+    label 'samtools'
+    tag "$pair_id"
+    publishDir "${params.outdir}/mapping", mode: 'copy'
+
+    input:
+    set pair_id, file(bam) from bam_for_index
+
+    output:
+    set pair_id, "${bam}.bai" into index_files
+
+    script:
+    """
+    samtools index $bam
+    """
   }
 
 ///////////////////////////////////////////////////////////////////////////////
