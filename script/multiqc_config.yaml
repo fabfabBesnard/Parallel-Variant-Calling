@@ -1,0 +1,15 @@
+top_modules:
+  - "fastqc"
+  - "samtools"
+  - "picard"
+
+custom_content:
+  order:
+    - Coverage
+    - Undefined_variants_number_for_filtered_snps
+    - Undefined_variants_number_for_filtered_indels
+    - Quality_of_specific_variation_for_filtered_snps
+    - Quality_of_specific_variation_for_filtered_indels
+    - Specific_vs_shared_variants
+    - Summary_variant_type
+    - Summary_variant_impact

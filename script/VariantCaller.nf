@@ -1537,6 +1537,9 @@ fig.write_html("Specific_vs_shared_variants_mqc.html")
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+Channel 
+  .fromPath( params.config_mutliqc )
+  .into { config_multiqc_yaml }
 
 if (params.readsinbam) {
  process MultiQC_withbamfile {
@@ -1549,6 +1552,7 @@ if (params.readsinbam) {
      file report_custom from to_multiqc.collect()
      file cov from cov_multiqc.collect()
      file bar from bar_multiqc.collect()
+     file config from config_multiqc_yaml.collect()
 
      output:
      file "*multiqc_*" into multiqc_report
