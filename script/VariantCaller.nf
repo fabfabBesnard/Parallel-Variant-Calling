@@ -580,7 +580,7 @@ int  2  [ [ -∞  ∞ ] ]  */
 process Variant_calling {
   label 'gatk'
   tag "$pair_id"
-  publishDir "${params.outdir}/variant/", mode: 'copy'
+  publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
   input:
   set pair_id, bam_file, bam_file_index from bam2GATK
@@ -621,7 +621,7 @@ process Variant_calling {
 process Join_Gvcf_to_vcf {
   label 'gatk'
   tag "and compute metrics"
-  publishDir "${params.outdir}/variant/", mode: 'copy'
+  publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
   input:
   file file_gvcf from gvcf.collect()
@@ -674,7 +674,7 @@ process Join_Gvcf_to_vcf {
 process Extract_SNP_and_filtering {
   label 'gatk'
   tag "$file_vcf"
-  publishDir "${params.outdir}/variant/", mode: 'copy'
+  publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
   input:
   file file_vcf from vcf_for_snp
@@ -719,7 +719,7 @@ process Extract_SNP_and_filtering {
 process Extract_INDEL_and_filtering {
   label 'gatk'
   tag "$file_vcf"
-  publishDir "${params.outdir}/variant/", mode: 'copy'
+  publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
   input:
   file file_vcf from vcf_for_indel
@@ -782,7 +782,7 @@ if (params.vqsrfile) {
   process  VariantQualityScoreRecalibration {
     label 'gatk'
     tag "snp + indel"
-    publishDir "${params.outdir}/variant/", mode: 'copy'
+    publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
     input:
     file rawsnp from rawsnp
@@ -879,7 +879,7 @@ if (params.vqsrfile) {
   process Extract_specific_variant_VQSR{
         // No label ! Launch with PSMN configuration
         tag "$vcf"
-        publishDir "${params.outdir}/variant/", mode: 'copy'
+        publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
         input:
         val qual from params.minglobalqual
@@ -903,7 +903,7 @@ else{
         // No label ! Launch with PSMN configuration
         tag "$vcf"
         //errorStrategy { task.exitStatus == 0 ? 'terminate' : 'ignore' }
-        publishDir "${params.outdir}/variant/", mode: 'copy'
+        publishDir "${params.outdir}/small_variants/", mode: 'copy'
 
         input:
         val qual from params.minglobalqual
@@ -1178,71 +1178,6 @@ process Find_specific_SV{
         """
 }
 
-/*
-process Prepare_Structural_Variant_calling_GATK {
-    label 'gatk'
-    
-    input:
-    file fasta from fasta_Structural_Variant_calling_GATK_prepare.collect()
-    file fasta_fai from fasta_fai_Structural_Variant_calling_GATK_prepare.collect()
-    file fasta_dict from fasta_dict_Structural_Variant_calling_GATK_prepare.collect()
-
-    output:
-    file "*" into file_to_GATK_SV
-
-    script:
-    """
-    gatk BwaMemIndexImageCreator \
-     -I $fasta \
-     -O reference.img
-    
-    gatk FindBadGenomicKmersSpark \
-    -R $fasta \
-    -O kmers_to_ignore.txt
-    """
-  }
-  
-  process Structural_Variant_calling_GATK {
-    label 'gatk'
-    tag "$pair_id"
-    publishDir "${params.outdir}/stuctural_variant/", mode: 'copy'
-
-    input:
-    set pair_id, bam_file, bai from bam2GATK_SV
-    file fasta_fai from fasta_fai_Structural_Variant_calling_GATK.collect()
-    file fasta from fasta_Structural_Variant_calling_GATK.collect()
-    file fasta_dict from fasta_dict_Structural_Variant_calling_GATK.collect()
-    file vgdjfhhsdkbh from file_to_GATK_SV.collect()
-
-    output:
-    file "*vcf" into GATK_SV
-
-    script:
-    """
-    gatk BwaMemIndexImageCreator \
-     -I $fasta \
-     -O reference.img
-    
-    gatk FindBadGenomicKmersSpark \
-    -R $fasta \
-    -O kmers_to_ignore.txt
-
-    gatk FindBreakpointEvidenceSpark \
-     -I $bam_file \
-     --aligner-index-image reference.img \
-     --kmers-to-ignore kmers_to_ignore.txt \
-     -O aligned_contigs.sam
-
-    gatk StructuralVariationDiscoveryPipelineSpark \
-     -I $bam_file \
-     -R $fasta \
-     --aligner-index-image reference.img \
-     --kmers-to-ignore kmers_to_ignore.txt \
-     --contig-sam-file aligned_contigs.sam \
-     -O GATK_${pair_id}.vcf 
-    """
-  }
-*/
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1252,28 +1187,6 @@ process Prepare_Structural_Variant_calling_GATK {
 /* --                                                                     -- */
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
-// Peu de docker disponible, aucun pour la derniere version de snpEff 
-// voir pour en crer un ?? 
-// Voir pour faire option pour database deja crée et lui passer le chemin du rep data ? 
-// voir piur utiliser la database deja crée dans snpeff 
-// voir pour la localisation du config file ? possibilité d'aller chercher dans un autre repertoire
-
-/*process Extract_masked_region {
-  publishDir "${params.outdir}/masked_region/", mode: "copy"
-
-  input:
-  file fa from fasta_masked_region
-
-  output:
-  file "${fa.baseName}.bed" into masked_region
-
-  script:
-  """
-  python $projectDir/Nstretch2bed.py $fa ${fa.baseName}.bed
-  """
-
-}*/
 
 process All_variant {
   label 'snpeff'
@@ -1418,7 +1331,7 @@ else{
 
 process Final_process_all_variant {
       tag "$pair_id"
-      publishDir "${params.outdir}/All_variant", mode: 'copy'
+      publishDir "${params.outdir}/final_by_variant", mode: 'copy'
 
       input:
       file fi from tab_all.collect()
@@ -1445,7 +1358,7 @@ process Final_process_all_variant {
 
 process Final_process {
       tag "$pair_id"
-      publishDir "${params.outdir}/final", mode: 'copy'
+      publishDir "${params.outdir}/final_by_gene", mode: 'copy'
 
       input:
       file fi from tabsnpeff.collect()
