@@ -1539,6 +1539,7 @@ fig.write_html("Specific_vs_shared_variants_mqc.html")
 
 Channel 
   .fromPath( params.config_mutliqc )
+  .view()
   .into { config_multiqc_yaml }
 
 if (params.readsinbam) {
