@@ -406,7 +406,7 @@ process Mapping_reads {
     set pair_id, file(bam) from bam_for_index
 
     output:
-    set pair_id, "${bam}.bai" into index_files
+    set pair_id, "${bam}.bai" into index_files_for_viewer
 
     script:
     """
